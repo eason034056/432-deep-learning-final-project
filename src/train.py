@@ -121,11 +121,13 @@ def create_model(model_type: str, num_classes: int, config: Dict) -> nn.Module:
         
     elif model_type == 'pointnet2':
         # PointNet++ with hierarchical Set Abstraction
+        dropout_sa = config['model'].get('dropout_sa', 0.2)
         model = PointNet2SSG(
             num_points=num_points,
             num_channels=3,
             num_classes=num_classes,
             dropout=dropout,
+            dropout_sa=dropout_sa,
             use_xyz=True
         )
         print("Created PointNet++ (SSG) model")

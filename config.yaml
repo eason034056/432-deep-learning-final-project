@@ -1,12 +1,12 @@
 augmentation:
   normalize: true
-  rotation_range: 30
-  translation_range: 0.2
+  rotation_range: 360
+  translation_range: 0.0
 data:
   normalize_center: true
   normalize_scale: true
   num_channels: 3
-  num_points: 200
+  num_points: 1000
   processed_dir: data/processed
   raw_dir: data/raw
   samples_per_mesh: 100
@@ -17,7 +17,8 @@ logging:
   save_interval: 10
 model:
   cnn1d_kernel_size: 3
-  dropout: 0.2
+  dropout: 0.5
+  dropout_sa: 0.3
   num_classes: 10
   type: pointnet
 autoencoder:
@@ -32,4 +33,4 @@ training:
   early_stopping_patience: 20
   learning_rate: 0.001
   num_epochs: 120
-  weight_decay: 0.0001
+  weight_decay: 0.001

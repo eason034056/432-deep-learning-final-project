@@ -288,6 +288,7 @@ class PointNet2SSG(nn.Module):
                  num_channels: int = 3,
                  num_classes: int = 10,
                  dropout: float = 0.3,
+                 dropout_sa: float = 0.2,
                  use_xyz: bool = True):
         """
         Args:
@@ -295,12 +296,16 @@ class PointNet2SSG(nn.Module):
             num_channels: input channels (3 for xyz)
             num_classes: output classes (10 subjects)
             dropout: dropout rate for classifier
+            dropout_sa: dropout rate after each Set Abstraction layer (0.2 = mild regularization)
             use_xyz: use xyz in Set Abstraction (recommended)
         """
         super(PointNet2SSG, self).__init__()
         
         self.num_points = num_points
         self.num_classes = num_classes
+        
+        # Dropout after each SA layer (regularize intermediate features)
+        self.dropout_sa = nn.Dropout(dropout_sa)
         
         # Set Abstraction layers
         # SA1: downsample 200 → 64
@@ -360,12 +365,15 @@ class PointNet2SSG(nn.Module):
         
         # SA1
         xyz, features = self.sa1(xyz, features)  # (B, 64, 3), (B, 128, 64)
+        features = self.dropout_sa(features)
         
         # SA2
         xyz, features = self.sa2(xyz, features)  # (B, 16, 3), (B, 256, 16)
+        features = self.dropout_sa(features)
         
         # SA3 (global)
         _, features = self.sa3(xyz, features)  # (B, 1024, 1)
+        features = self.dropout_sa(features)
         
         # Flatten and classify
         features = features.squeeze(-1)  # (B, 1024)
