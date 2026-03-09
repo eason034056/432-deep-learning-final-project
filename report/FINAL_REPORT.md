@@ -15,11 +15,6 @@
 5. [Conclusion](#5-conclusion)
 6. [References](#6-references)
 
----
-
-## Authors
-
-*[Add team member names here - e.g., Author 1, Author 2, Author 3]*
 
 ---
 

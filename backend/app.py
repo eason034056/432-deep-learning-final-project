@@ -233,7 +233,7 @@ def train_model():
     Start model training
     
     Expects JSON with:
-    - model_type: 'mlp', 'cnn1d', or 'pointnet'
+    - model_type: 'mlp', 'cnn1d', 'pointnet', or 'pointnet2'
     - hyperparameters: batch_size, learning_rate, num_epochs, etc.
     """
     try:

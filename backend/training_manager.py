@@ -185,7 +185,7 @@ class TrainingManager:
         Start a new training job
         
         Args:
-            model_type: Model type ('mlp', 'cnn1d', 'pointnet')
+            model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'pointnet2')
             config: Configuration dictionary
             
         Returns:
@@ -365,7 +365,7 @@ class TrainingManager:
             return None
         
         try:
-            # Generate report (placeholder - would create PDF/HTML report)
+            # Generate report (JSON format; PDF/HTML not implemented)
             report_dir = os.path.join(get_project_root(), 'results', 'reports')
             os.makedirs(report_dir, exist_ok=True)
             

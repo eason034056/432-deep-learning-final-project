@@ -4,7 +4,7 @@ A PyTorch-based platform for training and evaluating point cloud-based human ide
 
 **Course**: MLDS 432 Deep Learning 
 **Institution**: Northwestern University  
-**Authors**: *[Add team member names here]*
+**Group**: Group 7
 
 <div align="center">
 
@@ -512,10 +512,11 @@ After training, you'll find:
 - Confusion matrices
 - Per-class precision/recall/F1
 
-📉 **Visualizations** (`results/experiments/`)
-- `model_comparison.png` - Side-by-side comparison
-- `confusion_matrix_<model>.png` - Confusion matrices
-- `performance_curves.png` - Training curves
+📉 **Visualizations** (`results/experiments/`) — from `python analyze_results.py` after running experiments
+- `performance_comparison.png` - Model performance comparison
+- `centering_impact.png` - Centering impact analysis
+- `model_ranking.png` - Model ranking
+- Training curves: use `tensorboard --logdir results/tensorboard` or `results/experiments/`
 
 ### Interpreting Results
 

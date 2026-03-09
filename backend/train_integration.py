@@ -228,7 +228,7 @@ def train_model(model_type: str,
     callback support for the GUI to track progress in real-time.
     
     Args:
-        model_type: Model type ('mlp', 'cnn1d', 'pointnet')
+        model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'pointnet2')
         config: Configuration dictionary
         progress_callback: Optional callback function(epoch, metrics)
         

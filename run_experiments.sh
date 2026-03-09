@@ -4,11 +4,11 @@
 #
 # Experiment Design:
 #   - Centering: with vs without
-#   - Models: MLP, CNN1D (kernel_size=3), PointNet
+#   - Models: MLP, CNN1D (kernel_size=3), PointNet++
 #   - Split: Grouped (no data leakage)
 #   - Total runs: 2 × 3 = 6 training runs
 #
-# Estimated time: ~2-3 hours
+# Estimated time: ~4-6 hours (PointNet++ takes longer)
 
 set -e  # Exit on error
 
@@ -18,11 +18,11 @@ echo "================================================================"
 echo ""
 echo "Experiment Configuration:"
 echo "  • Centering options: With / Without"
-echo "  • Models: MLP, CNN1D (k=3), PointNet"
+echo "  • Models: MLP, CNN1D (k=3), PointNet++"
 echo "  • Split strategy: Grouped (no data leakage)"
 echo "  • Total runs: 6"
 echo ""
-echo "Estimated time: ~2-3 hours"
+echo "Estimated time: ~4-6 hours (PointNet++ takes longer)"
 echo ""
 read -p "Press Enter to start the experiments..."
 
@@ -56,10 +56,18 @@ restore_config() {
 # ========================================
 # Configuration Update Functions
 # ========================================
+# Cross-platform sed: macOS uses "sed -i ''", Linux uses "sed -i"
+sed_inplace() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
 
 set_normalize_center() {
     local value=$1
-    sed -i '' "s/normalize_center: .*/normalize_center: $value  # Experiment setting/" config.yaml
+    sed_inplace "s/normalize_center: .*/normalize_center: $value  # Experiment setting/" config.yaml
 }
 
 clean_processed_data() {
@@ -105,7 +113,7 @@ train_model() {
 backup_config
 
 # Ensure normalize_scale is false (keep absolute body size)
-sed -i '' "s/normalize_scale: .*/normalize_scale: false  # Keep absolute body size/" config.yaml
+sed_inplace "s/normalize_scale: .*/normalize_scale: false  # Keep absolute body size/" config.yaml
 
 # ========================================
 # Experiment Group 1: WITH CENTERING
@@ -121,7 +129,7 @@ clean_processed_data
 
 train_model "mlp" "with_center"
 train_model "cnn1d" "with_center"
-train_model "pointnet" "with_center"
+train_model "pointnet2" "with_center"
 
 # ========================================
 # Experiment Group 2: WITHOUT CENTERING
@@ -137,7 +145,7 @@ clean_processed_data
 
 train_model "mlp" "no_center"
 train_model "cnn1d" "no_center"
-train_model "pointnet" "no_center"
+train_model "pointnet2" "no_center"
 
 # ========================================
 # Completion and Cleanup
@@ -155,10 +163,10 @@ echo ""
 echo "Directory Structure:"
 echo "  with_center_mlp/         - MLP with centering"
 echo "  with_center_cnn1d/       - CNN1D with centering (kernel_size=3)"
-echo "  with_center_pointnet/    - PointNet with centering"
+echo "  with_center_pointnet2/   - PointNet++ with centering"
 echo "  no_center_mlp/           - MLP without centering"
 echo "  no_center_cnn1d/         - CNN1D without centering (kernel_size=3)"
-echo "  no_center_pointnet/      - PointNet without centering"
+echo "  no_center_pointnet2/     - PointNet++ without centering"
 echo ""
 echo "Processed Data:"
 echo "  data/processed/faust_pc.npz - grouped split (no data leakage)"
