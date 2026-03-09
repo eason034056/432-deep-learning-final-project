@@ -185,8 +185,11 @@ def chamfer_distance(pred: torch.Tensor, target: torch.Tensor,
         cd: scalar loss
     """
     # pred (B, N, 3), target (B, M, 3)
-    # dist: (B, N, M) - pairwise squared distance
-    diff = pred.unsqueeze(3) - target.unsqueeze(2)  # (B, N, M, 3)
+    # Build all pairwise point differences:
+    # pred.unsqueeze(2)   -> (B, N, 1, 3)
+    # target.unsqueeze(1) -> (B, 1, M, 3)
+    # broadcast result    -> (B, N, M, 3)
+    diff = pred.unsqueeze(2) - target.unsqueeze(1)
     dist = (diff ** 2).sum(dim=-1)  # (B, N, M)
     
     # pred_to_target: for each pred point, min dist to target
