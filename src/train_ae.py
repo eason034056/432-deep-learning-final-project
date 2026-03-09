@@ -108,13 +108,19 @@ def main():
     parser.add_argument('--config', default='config.yaml')
     parser.add_argument('--model', choices=['mlp_ae', 'pointnet_ae'], default='mlp_ae')
     parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--gpu', type=int, default=None,
+                        help='GPU id to use (e.g. 3). If not set, uses default cuda:0. Use when other GPUs are busy.')
     args = parser.parse_args()
     
     print("train_ae: Starting...", flush=True)
     config = load_config(args.config)
     
-    device = torch.device('cuda' if torch.cuda.is_available() else 
-                          'mps' if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available() else 'cpu')
+    if torch.cuda.is_available():
+        device = torch.device(f'cuda:{args.gpu}' if args.gpu is not None else 'cuda')
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        device = torch.device('mps')
+    else:
+        device = torch.device('cpu')
     print(f"Device: {device}", flush=True)
     
     processed_path = Path(config['data']['processed_dir']) / 'faust_pc.npz'
