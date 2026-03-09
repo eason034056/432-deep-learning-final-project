@@ -9,6 +9,11 @@ Usage:
     python train_ae.py --config config.yaml --model pointnet_ae
 """
 
+# First thing: ensure we produce output (diagnose "no output" on HPC)
+import sys
+sys.stdout.write("train_ae: script starting\n")
+sys.stdout.flush()
+
 import os
 import sys
 import argparse
@@ -189,3 +194,13 @@ def main():
     writer.close()
     print(f"\nTraining complete. Best val_loss: {best_val_loss:.6f}")
     print(f"Checkpoints: {ckpt_dir}")
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        sys.stderr.write(f"train_ae ERROR: {e}\n")
+        traceback.print_exc()
+        sys.exit(1)
