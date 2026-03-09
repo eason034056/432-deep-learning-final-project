@@ -160,7 +160,7 @@ def validate_config(config: dict) -> tuple[bool, Optional[str]]:
     if 'type' not in config['model']:
         return False, "Missing model.type"
     
-    if config['model']['type'] not in ['mlp', 'cnn1d', 'pointnet', 'pointnet2']:
+    if config['model']['type'] not in ['mlp', 'cnn1d', 'pointnet', 'pointnet2', 'mmidnet']:
         return False, f"Invalid model type: {config['model']['type']}"
     
     return True, None

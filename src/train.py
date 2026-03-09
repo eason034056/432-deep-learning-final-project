@@ -41,7 +41,7 @@ from dataset import (
     load_processed_dataset
 )
 
-from models import MLPBaseline, CNN1DModel, TinyPointNet, PointNet2SSG
+from models import MLPBaseline, CNN1DModel, TinyPointNet, PointNet2SSG, MMIDNet
 
 
 def load_config(config_path: str) -> Dict:
@@ -131,10 +131,20 @@ def create_model(model_type: str, num_classes: int, config: Dict) -> nn.Module:
             use_xyz=True
         )
         print("Created PointNet++ (SSG) model")
+
+    elif model_type == 'mmidnet':
+        # MMIDNet: Transform Block + Residual CNN + Global Max Pool + Dense
+        model = MMIDNet(
+            num_points=num_points,
+            num_channels=3,
+            num_classes=num_classes,
+            dropout=dropout
+        )
+        print("Created MMIDNet model")
         
     else:
         raise ValueError(f"Unknown model type: {model_type}. "
-                        f"Choose from: mlp, cnn1d, pointnet, pointnet2")
+                        f"Choose from: mlp, cnn1d, pointnet, pointnet2, mmidnet")
     
     # Print model parameter count
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -677,7 +687,7 @@ def main():
         '--model',
         type=str,
         default='pointnet',
-        choices=['mlp', 'cnn1d', 'pointnet', 'pointnet2'],
+        choices=['mlp', 'cnn1d', 'pointnet', 'pointnet2', 'mmidnet'],
         help='Model type to train'
     )
     parser.add_argument(

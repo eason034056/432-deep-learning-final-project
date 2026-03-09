@@ -12,6 +12,7 @@ from .mlp import MLPBaseline, DeepMLPBaseline
 from .cnn1d import CNN1DModel, ResidualCNN1D
 from .pointnet_tiny import TinyPointNet, TNet, PointNetBackbone
 from .pointnet2 import PointNet2SSG
+from .mmidnet import MMIDNet
 from .autoencoder import MLPAutoencoder, PointNet2Autoencoder, chamfer_distance
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     'TNet',
     'PointNetBackbone',
     'PointNet2SSG',
+    'MMIDNet',
     'MLPAutoencoder',
     'PointNet2Autoencoder',
     'chamfer_distance'

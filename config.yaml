@@ -20,7 +20,7 @@ model:
   dropout: 0.5
   dropout_sa: 0.3
   num_classes: 10
-  type: pointnet
+  type: pointnet  # Options: mlp, cnn1d, pointnet, pointnet2, mmidnet
 autoencoder:
   latent_dim: 128
 split:
