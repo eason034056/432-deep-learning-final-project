@@ -63,7 +63,7 @@ date: "Northwestern University"
 | Model | Chamfer Distance | Notes |
 |-------|------------------|-------|
 | MLP AE | Higher | Challenger |
-| **MLP AE** | Baseline | Compression |
+| **PointNet AE** | **Lower** | Champion, permutation-invariant |
 
 ## Loss: Chamfer Distance
 
@@ -86,7 +86,7 @@ date: "Northwestern University"
 ## Conclusion
 
 - Two cognitive problems solved
-- PointNet Tiny best for classification
+- PointNet Tiny best for classification; PointNet AE best for compression
 - Full deployment and maintenance documentation
 
 ---

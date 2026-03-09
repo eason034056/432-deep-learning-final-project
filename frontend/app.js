@@ -296,9 +296,9 @@ function selectTask(taskType) {
     } else {
         classificationModels.style.display = 'none';
         autoencoderModels.style.display = 'flex';
-        selectedModel = 'mlp_ae';
+        selectedModel = 'pointnet_ae';
         document.querySelectorAll('#autoencoderModels .model-option').forEach(opt => opt.classList.remove('selected'));
-        document.querySelector('#autoencoderModels [data-model="mlp_ae"]').classList.add('selected');
+        document.querySelector('#autoencoderModels [data-model="pointnet_ae"]').classList.add('selected');
     }
 }
 

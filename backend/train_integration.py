@@ -33,7 +33,7 @@ from dataset import (
     load_processed_dataset,
     FAUSTPointCloudDataset
 )
-from models import MLPAutoencoder, chamfer_distance
+from models import MLPAutoencoder, PointNetAutoencoder, chamfer_distance
 
 from evaluate import evaluate_model as eval_model_original
 
@@ -47,7 +47,7 @@ import numpy as np
 from backend.utils import get_project_root
 
 def _is_autoencoder(model_type: str) -> bool:
-    return model_type == 'mlp_ae'
+    return model_type in ('mlp_ae', 'pointnet_ae')
 
 
 def train_ae_model(model_type: str, config: dict, progress_callback=None) -> str:
@@ -105,8 +105,12 @@ def train_ae_model(model_type: str, config: dict, progress_callback=None) -> str
     dropout = config['model'].get('dropout', 0.1)
     latent_dim = config.get('autoencoder', {}).get('latent_dim', 128)
 
-    model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
-                           hidden_dims=(256, 128), dropout=dropout)
+    if model_type == 'mlp_ae':
+        model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
+                              hidden_dims=(256, 128), dropout=dropout)
+    else:
+        model = PointNetAutoencoder(num_points=num_points, num_channels=3, latent_dim=1024,
+                                   dropout=dropout, use_tnet=True, channel_dims=(64, 128, 1024))
     model = model.to(device)
 
     criterion = lambda pred, target: chamfer_distance(pred, target, reduce='mean')
@@ -185,8 +189,12 @@ def evaluate_ae_model(model_type: str, checkpoint_path: str, config: dict) -> di
     dropout = config['model'].get('dropout', 0.1)
     latent_dim = config.get('autoencoder', {}).get('latent_dim', 128)
 
-    model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
-                           hidden_dims=(256, 128), dropout=dropout)
+    if model_type == 'mlp_ae':
+        model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
+                              hidden_dims=(256, 128), dropout=dropout)
+    else:
+        model = PointNetAutoencoder(num_points=num_points, num_channels=3, latent_dim=1024,
+                                   dropout=dropout, use_tnet=True, channel_dims=(64, 128, 1024))
     model = model.to(device)
     ckpt = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(ckpt['model_state_dict'])

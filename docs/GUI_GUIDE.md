@@ -13,7 +13,7 @@
 - **Task Type**: Choose Classification or Autoencoder
 - **Training**: 
   - Classification: MLP, 1D-CNN, PointNet Tiny
-  - Autoencoder: MLP AE
+  - Autoencoder: MLP AE, PointNet AE
 - **Monitoring**: Real-time training curves (loss, accuracy for classification; loss only for AE)
 - **Evaluation**: Generate performance reports
 - **Download**: Save trained models and results

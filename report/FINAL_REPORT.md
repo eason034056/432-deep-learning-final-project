@@ -20,7 +20,7 @@
 
 ## 1. Abstract
 
-This project addresses two cognitive problems using the FAUST point cloud dataset: (1) **human identification** from sparse 3D point clouds (10-class classification), and (2) **point cloud compression/reconstruction** via autoencoders. We implement and compare multiple deep learning architectures: MLP, 1D-CNN, and PointNet Tiny for classification; MLP-based autoencoder for compression. Our best classification model (PointNet Tiny) achieves approximately 70–85% validation accuracy with permutation invariance. We provide a deployment architecture with Docker, Flask API, and web GUI, along with a model maintenance and parameter update plan.
+This project addresses two cognitive problems using the FAUST point cloud dataset: (1) **human identification** from sparse 3D point clouds (10-class classification), and (2) **point cloud compression/reconstruction** via autoencoders. We implement and compare multiple deep learning architectures: MLP, 1D-CNN, and PointNet Tiny for classification; MLP-based and PointNet-based autoencoders for compression. Our best classification model (PointNet Tiny) achieves approximately 70–85% validation accuracy with permutation invariance. For compression, the PointNet autoencoder typically outperforms the MLP baseline in Chamfer Distance. We provide a deployment architecture with Docker, Flask API, and web GUI, along with a model maintenance and parameter update plan.
 
 **Keywords**: Point clouds, mmWave radar, human identification, PointNet, autoencoder, Chamfer Distance, FAUST dataset.
 
@@ -82,11 +82,12 @@ The EDA notebook (`notebooks/eda.ipynb`) includes:
 
 | Model | Encoder | Decoder | Pros | Cons |
 |-------|---------|---------|------|------|
-| **MLP AE** | Flatten → FC | FC → reshape | Simple, fast | Order-dependent |
+| **MLP AE (Challenger)** | Flatten → FC | FC → reshape | Simple, fast | Order-dependent |
+| **PointNet AE (Champion)** | PointNet backbone | Folding (latent + grid → MLP) | Permutation-invariant | More parameters |
 
 **Evaluation Metrics**: Chamfer Distance (CD), Earth Mover's Distance (optional), reconstruction visualization.
 
-**Results**: MLP autoencoder is used for compression task.
+**Results**: PointNet AE typically achieves lower Chamfer Distance than MLP due to permutation invariance.
 
 ### 3.3 Algorithm Pros and Cons
 
@@ -122,7 +123,7 @@ See `docs/MODEL_OPS.md` for detailed architecture diagrams and component descrip
 
 ## 5. Conclusion
 
-We implemented a deep learning platform for mmWave radar-based human identification and point cloud compression. Two cognitive problems were addressed: (1) classification with MLP, 1D-CNN, and PointNet Tiny, and (2) compression with MLP autoencoder. PointNet Tiny consistently outperforms baselines due to its permutation invariance and T-Net transformation. We provided a deployment architecture, maintenance plan, and parameter update process to support production use.
+We implemented a deep learning platform for mmWave radar-based human identification and point cloud compression. Two cognitive problems were addressed: (1) classification with MLP, 1D-CNN, and PointNet Tiny, and (2) compression with MLP and PointNet autoencoders. PointNet Tiny consistently outperforms baselines for classification due to its permutation invariance and T-Net transformation. PointNet AE achieves better geometry preservation for compression. We provided a deployment architecture, maintenance plan, and parameter update process to support production use.
 
 **Future work**: Temporal modeling (e.g., Bi-LSTM) for sequential point clouds, larger datasets, and real mmWave radar deployment.
 

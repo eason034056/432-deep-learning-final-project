@@ -8,9 +8,9 @@
 
 ## Autoencoder Experiments
 
-- **Models**: mlp_ae
+- **Models**: mlp_ae, pointnet_ae
 - **Loss**: Chamfer Distance
-- **Run**: `python src/train_ae.py --model mlp_ae --epochs 100`
+- **Run**: `python src/train_ae.py --model mlp_ae --epochs 100` or `--model pointnet_ae`
 
 ## Analysis
 

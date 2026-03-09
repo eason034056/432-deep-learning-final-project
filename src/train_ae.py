@@ -1,11 +1,12 @@
 """
 Training script for Point Cloud Autoencoder models.
 
-Trains MLP-based autoencoder for the compression task.
+Trains MLP-based and PointNet-based autoencoders for the compression task.
 Uses Chamfer Distance as the reconstruction loss.
 
 Usage:
     python train_ae.py --config config.yaml --model mlp_ae
+    python train_ae.py --config config.yaml --model pointnet_ae
 """
 
 import os
@@ -29,7 +30,7 @@ from dataset import (
     stratified_split_grouped,
     save_processed_dataset,
 )
-from models import MLPAutoencoder, chamfer_distance
+from models import MLPAutoencoder, PointNetAutoencoder, chamfer_distance
 
 
 def load_config(config_path: str) -> Dict:
@@ -51,8 +52,18 @@ def create_ae_model(model_type: str, config: Dict) -> nn.Module:
             dropout=dropout
         )
         print("Created MLP Autoencoder")
+    elif model_type == 'pointnet_ae':
+        model = PointNetAutoencoder(
+            num_points=num_points,
+            num_channels=3,
+            latent_dim=1024,
+            dropout=dropout,
+            use_tnet=True,
+            channel_dims=(64, 128, 1024)
+        )
+        print("Created PointNet Autoencoder")
     else:
-        raise ValueError(f"Unknown model: {model_type}. Use mlp_ae")
+        raise ValueError(f"Unknown model: {model_type}. Use mlp_ae or pointnet_ae")
     
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Parameters: {n_params:,}")
@@ -90,7 +101,7 @@ def validate(model, val_loader, criterion, device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='config.yaml')
-    parser.add_argument('--model', choices=['mlp_ae'], default='mlp_ae')
+    parser.add_argument('--model', choices=['mlp_ae', 'pointnet_ae'], default='mlp_ae')
     parser.add_argument('--epochs', type=int, default=100)
     args = parser.parse_args()
     

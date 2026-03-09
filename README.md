@@ -57,7 +57,8 @@ This platform trains deep learning models to **identify individuals** from spars
 
 | Model | Chamfer Distance | Notes |
 |-------|------------------|-------|
-| **MLP AE** | Baseline | Flatten-based compression |
+| **MLP AE** | Higher | Flatten-based (Challenger) |
+| **PointNet AE** ⭐ | Lower | Permutation-invariant (Champion) |
 
 ### Use Cases
 
@@ -161,6 +162,7 @@ python src/train.py --config config.yaml --model mlp
 
 # Train Autoencoder (compression task)
 python src/train_ae.py --config config.yaml --model mlp_ae
+python src/train_ae.py --config config.yaml --model pointnet_ae
 ```
 
 **Train all three models:**
@@ -453,7 +455,7 @@ deep learning final project/
 │       ├── mlp.py                 # MLP Baseline
 │       ├── cnn1d.py               # 1D-CNN Model
 │       ├── pointnet_tiny.py       # Tiny PointNet (pointnet)
-│       └── autoencoder.py         # MLP AE
+│       └── autoencoder.py         # MLP AE & PointNet AE
 │
 ├── data/                          # Data directory
 │   ├── raw/                       # Raw mesh files (.ply, .obj)

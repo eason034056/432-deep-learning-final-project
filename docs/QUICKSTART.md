@@ -25,7 +25,7 @@ python src/train.py --model mlp
 
 ```bash
 python src/train_ae.py --model mlp_ae
-python src/train_ae.py --model mlp_ae
+python src/train_ae.py --model pointnet_ae
 ```
 
 ## Evaluate

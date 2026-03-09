@@ -241,7 +241,7 @@ def train_model():
         model_type = params.get('model_type', 'pointnet')
         
         # Validate model type (classification + autoencoder)
-        valid_models = ['mlp', 'cnn1d', 'pointnet', 'mmidnet', 'mlp_ae']
+        valid_models = ['mlp', 'cnn1d', 'pointnet', 'mmidnet', 'mlp_ae', 'pointnet_ae']
         if model_type not in valid_models:
             return jsonify({
                 'success': False,

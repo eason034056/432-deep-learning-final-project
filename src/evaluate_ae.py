@@ -5,6 +5,8 @@ Computes Chamfer Distance and generates reconstruction visualizations.
 
 Usage:
     python evaluate_ae.py --config config.yaml --model mlp_ae --checkpoint results/checkpoints/mlp_ae/model_best.pth
+    python evaluate_ae.py --config config.yaml --model pointnet_ae --checkpoint results/checkpoints/pointnet_ae/model_best.pth
+    python evaluate_ae.py --config config.yaml --compare
 """
 
 import os
@@ -22,7 +24,7 @@ from mpl_toolkits.mplot3d import Axes3D
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from dataset import load_processed_dataset, stratified_split_grouped, FAUSTPointCloudDataset
-from models import MLPAutoencoder, chamfer_distance
+from models import MLPAutoencoder, PointNetAutoencoder, chamfer_distance
 
 
 def load_config(config_path: str) -> Dict:
@@ -37,8 +39,11 @@ def create_ae_model(model_type: str, config: Dict) -> torch.nn.Module:
     if model_type == 'mlp_ae':
         return MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=128,
                               hidden_dims=(256, 128), dropout=dropout)
+    elif model_type == 'pointnet_ae':
+        return PointNetAutoencoder(num_points=num_points, num_channels=3, latent_dim=1024,
+                                  dropout=dropout, use_tnet=True, channel_dims=(64, 128, 1024))
     else:
-        raise ValueError(f"Unknown model: {model_type}. Use mlp_ae")
+        raise ValueError(f"Unknown model: {model_type}. Use mlp_ae or pointnet_ae")
 
 
 def evaluate_ae(model, test_loader, device) -> tuple:
@@ -87,7 +92,7 @@ def plot_reconstruction(original: np.ndarray, reconstructed: np.ndarray, save_pa
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='config.yaml')
-    parser.add_argument('--model', choices=['mlp_ae'], help='Single model mode')
+    parser.add_argument('--model', choices=['mlp_ae', 'pointnet_ae'], help='Single model mode')
     parser.add_argument('--checkpoint', help='Path to checkpoint (single model)')
     parser.add_argument('--compare', action='store_true', help='Compare both models')
     args = parser.parse_args()
@@ -116,11 +121,11 @@ def main():
     
     if args.compare:
         print("=" * 60)
-        print("Autoencoder Evaluation")
+        print("Autoencoder Comparison: MLP vs PointNet")
         print("=" * 60)
         
         results = []
-        for model_name in ['mlp_ae']:
+        for model_name in ['mlp_ae', 'pointnet_ae']:
             ckpt_path = results_dir / 'checkpoints' / model_name / 'model_best.pth'
             if not ckpt_path.exists():
                 print(f"  Skip {model_name}: checkpoint not found")
