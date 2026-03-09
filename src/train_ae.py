@@ -62,9 +62,9 @@ def create_ae_model(model_type: str, config: Dict) -> nn.Module:
         model = PointNetAutoencoder(
             num_points=num_points,
             num_channels=3,
-            latent_dim=256,
-            dropout=0.3,
-            use_tnet=True,
+            latent_dim=128,
+            dropout=0.5,
+            use_tnet=False,
             channel_dims=(64, 128, 256)
         )
     else:
