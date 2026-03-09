@@ -62,10 +62,10 @@ def create_ae_model(model_type: str, config: Dict) -> nn.Module:
         model = PointNetAutoencoder(
             num_points=num_points,
             num_channels=3,
-            latent_dim=1024,
-            dropout=dropout,
+            latent_dim=256,
+            dropout=0.3,
             use_tnet=True,
-            channel_dims=(64, 128, 1024)
+            channel_dims=(64, 128, 256)
         )
     else:
         raise ValueError(f"Unknown model: {model_type}. Use mlp_ae or pointnet_ae")
