@@ -46,7 +46,7 @@ date: "Northwestern University"
 |-------|----------|-------|
 | MLP | ~20-40% | Baseline, order-dependent |
 | 1D-CNN | ~65-70% | Local patterns |
-| **PointNet++** | **~70-85%** | Champion, permutation-invariant |
+| **PointNet Tiny** | **~70-85%** | Champion, permutation-invariant |
 
 ## Evaluation Metrics
 
@@ -63,7 +63,7 @@ date: "Northwestern University"
 | Model | Chamfer Distance | Notes |
 |-------|------------------|-------|
 | MLP AE | Higher | Challenger |
-| **PointNet++ AE** | **Lower** | Champion |
+| **MLP AE** | Baseline | Compression |
 
 ## Loss: Chamfer Distance
 
@@ -86,7 +86,7 @@ date: "Northwestern University"
 ## Conclusion
 
 - Two cognitive problems solved
-- PointNet++ best for both tasks
+- PointNet Tiny best for classification
 - Full deployment and maintenance documentation
 
 ---

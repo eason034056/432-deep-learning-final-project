@@ -16,7 +16,7 @@ const POLL_INTERVAL = 2000; // 2 seconds
 // Global state
 let currentJobId = null;
 let selectedTask = 'classification';  // 'classification' | 'autoencoder'
-let selectedModel = 'pointnet2';
+let selectedModel = 'pointnet';
 let pollingInterval = null;
 let trainingChart = null;
 
@@ -290,15 +290,15 @@ function selectTask(taskType) {
     if (taskType === 'classification') {
         classificationModels.style.display = 'flex';
         autoencoderModels.style.display = 'none';
-        selectedModel = 'pointnet2';
+        selectedModel = 'pointnet';
         document.querySelectorAll('#classificationModels .model-option').forEach(opt => opt.classList.remove('selected'));
-        document.querySelector('#classificationModels [data-model="pointnet2"]').classList.add('selected');
+        document.querySelector('#classificationModels [data-model="pointnet"]').classList.add('selected');
     } else {
         classificationModels.style.display = 'none';
         autoencoderModels.style.display = 'flex';
-        selectedModel = 'pointnet2_ae';
+        selectedModel = 'mlp_ae';
         document.querySelectorAll('#autoencoderModels .model-option').forEach(opt => opt.classList.remove('selected'));
-        document.querySelector('#autoencoderModels [data-model="pointnet2_ae"]').classList.add('selected');
+        document.querySelector('#autoencoderModels [data-model="mlp_ae"]').classList.add('selected');
     }
 }
 

@@ -51,14 +51,13 @@ This platform trains deep learning models to **identify individuals** from spars
 |-------|----------|---------------|----------|
 | **MLP Baseline** | ~20-40% | 10-20 min | Quick testing |
 | **1D-CNN** | ~65-70% | 30-60 min | Balanced performance |
-| **PointNet++** ⭐ | ~70-85% | 60-120 min | Best accuracy |
+| **PointNet Tiny** ⭐ | ~70-85% | 60-120 min | Best accuracy |
 
 ### Autoencoder Models (Compression Task)
 
 | Model | Chamfer Distance | Notes |
 |-------|------------------|-------|
-| **MLP AE** | Higher | Challenger |
-| **PointNet++ AE** | Lower | Champion |
+| **MLP AE** | Baseline | Flatten-based compression |
 
 ### Use Cases
 
@@ -151,11 +150,8 @@ pip install -r requirements.txt
 **Train a single model:**
 
 ```bash
-# Train PointNet (best accuracy) - Tiny PointNet / PointNet-based
+# Train PointNet Tiny (best accuracy)
 python src/train.py --config config.yaml --model pointnet
-
-# Train PointNet++ (full hierarchical model)
-python src/train.py --config config.yaml --model pointnet2
 
 # Train 1D-CNN (moderate performance)
 python src/train.py --config config.yaml --model cnn1d
@@ -164,7 +160,6 @@ python src/train.py --config config.yaml --model cnn1d
 python src/train.py --config config.yaml --model mlp
 
 # Train Autoencoder (compression task)
-python src/train_ae.py --config config.yaml --model pointnet2_ae
 python src/train_ae.py --config config.yaml --model mlp_ae
 ```
 
@@ -205,7 +200,7 @@ tensorboard --logdir results/tensorboard
 ```bash
 python src/train.py \
     --config config.yaml \        # Configuration file
-    --model pointnet \            # Model type: mlp, cnn1d, pointnet, pointnet2
+    --model pointnet \            # Model type: mlp, cnn1d, pointnet, mmidnet
     --resume checkpoint.pth       # Resume from checkpoint (optional)
 ```
 
@@ -301,7 +296,7 @@ Input (200, 3) → Sort → Conv1D(64) → Conv1D(128) → Conv1D(256)
 
 ---
 
-### 3. PointNet / PointNet++ ⭐ (Recommended)
+### 3. PointNet Tiny ⭐ (Recommended)
 
 **Architecture (Tiny PointNet):**
 ```
@@ -356,7 +351,7 @@ training:
 
 ```yaml
 model:
-  type: pointnet                 # mlp, cnn1d, pointnet, or pointnet2
+  type: pointnet                 # mlp, cnn1d, pointnet, mmidnet
   num_classes: 10                # Number of subjects
   dropout: 0.2                   # Dropout probability
   cnn1d_kernel_size: 3           # 1D-CNN kernel size
@@ -458,8 +453,7 @@ deep learning final project/
 │       ├── mlp.py                 # MLP Baseline
 │       ├── cnn1d.py               # 1D-CNN Model
 │       ├── pointnet_tiny.py       # Tiny PointNet (pointnet)
-│       ├── pointnet2.py           # PointNet++ (pointnet2)
-│       └── autoencoder.py         # MLP AE & PointNet++ AE
+│       └── autoencoder.py         # MLP AE
 │
 ├── data/                          # Data directory
 │   ├── raw/                       # Raw mesh files (.ply, .obj)
@@ -611,7 +605,7 @@ After training, you'll find:
    - T-Net for spatial transformation learning
    - [arXiv:1612.00593](https://arxiv.org/abs/1612.00593)
 
-3. **PointNet++**: "PointNet++: Deep Hierarchical Feature Learning on Point Sets in a Metric Space" (NeurIPS 2017)
+3. **PointNet++**: "PointNet++: Deep Hierarchical Feature Learning on Point Sets in a Metric Space" (NeurIPS 2017) — referenced for architecture concepts
    - Hierarchical Set Abstraction for local features
    - [arXiv:1706.02413](https://arxiv.org/abs/1706.02413)
 
@@ -638,7 +632,7 @@ After training, you'll find:
 
 - **Northwestern University MLDS 432**: Deep Learning
 - **MPI FAUST**: For providing the human body mesh dataset
-- **PointNet / PointNet++ Authors**: For the foundational point cloud architectures
+- **PointNet Authors**: For the foundational point cloud architectures
 - **MMIDNet Paper**: For the mmWave radar human identification inspiration
 
 ---

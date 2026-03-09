@@ -110,7 +110,7 @@ def get_model_checkpoint_path(model_type: str, job_id: Optional[str] = None) -> 
     Get path for model checkpoint
     
     Args:
-        model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'pointnet2')
+        model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'mmidnet')
         job_id: Optional job ID for unique naming
         
     Returns:
@@ -160,7 +160,7 @@ def validate_config(config: dict) -> tuple[bool, Optional[str]]:
     if 'type' not in config['model']:
         return False, "Missing model.type"
     
-    if config['model']['type'] not in ['mlp', 'cnn1d', 'pointnet', 'pointnet2', 'mmidnet']:
+    if config['model']['type'] not in ['mlp', 'cnn1d', 'pointnet', 'mmidnet']:
         return False, f"Invalid model type: {config['model']['type']}"
     
     return True, None

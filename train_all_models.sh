@@ -53,26 +53,26 @@ echo ""
 echo "1D-CNN training completed successfully!"
 echo ""
 
-# Train PointNet++
+# Train PointNet Tiny
 echo "======================================================================"
-echo "[3/3] Training PointNet++ Model"
+echo "[3/3] Training PointNet Tiny Model"
 echo "======================================================================"
-python src/train.py --config config.yaml --model pointnet2
+python src/train.py --config config.yaml --model pointnet
 
 if [ $? -ne 0 ]; then
-    echo "Error: PointNet++ training failed!"
+    echo "Error: PointNet Tiny training failed!"
     exit 1
 fi
 
 echo ""
-echo "PointNet++ training completed successfully!"
+echo "PointNet Tiny training completed successfully!"
 echo ""
 
 # Compare all models
 echo "======================================================================"
 echo "Comparing All Models"
 echo "======================================================================"
-python src/evaluate.py --compare --models mlp cnn1d pointnet2
+python src/evaluate.py --compare --models mlp cnn1d pointnet
 
 echo ""
 echo "======================================================================"

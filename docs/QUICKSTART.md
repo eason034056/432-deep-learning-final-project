@@ -16,7 +16,7 @@ pip install -r requirements.txt
 ## Train Classification Models
 
 ```bash
-python src/train.py --model pointnet2
+python src/train.py --model pointnet
 python src/train.py --model cnn1d
 python src/train.py --model mlp
 ```
@@ -24,14 +24,14 @@ python src/train.py --model mlp
 ## Train Autoencoder
 
 ```bash
-python src/train_ae.py --model pointnet2_ae
+python src/train_ae.py --model mlp_ae
 python src/train_ae.py --model mlp_ae
 ```
 
 ## Evaluate
 
 ```bash
-python src/evaluate.py --model pointnet2 --checkpoint results/checkpoints/pointnet2/model_best.pth
+python src/evaluate.py --model pointnet --checkpoint results/checkpoints/pointnet/model_best.pth
 python src/evaluate.py --compare
 python src/evaluate_ae.py --compare
 ```

@@ -233,15 +233,15 @@ def train_model():
     Start model training
     
     Expects JSON with:
-    - model_type: 'mlp', 'cnn1d', 'pointnet', or 'pointnet2'
+    - model_type: 'mlp', 'cnn1d', 'pointnet', or 'mmidnet'
     - hyperparameters: batch_size, learning_rate, num_epochs, etc.
     """
     try:
         params = request.json or {}
-        model_type = params.get('model_type', 'pointnet2')
+        model_type = params.get('model_type', 'pointnet')
         
         # Validate model type (classification + autoencoder)
-        valid_models = ['mlp', 'cnn1d', 'pointnet', 'pointnet2', 'mmidnet', 'mlp_ae', 'pointnet2_ae']
+        valid_models = ['mlp', 'cnn1d', 'pointnet', 'mmidnet', 'mlp_ae']
         if model_type not in valid_models:
             return jsonify({
                 'success': False,

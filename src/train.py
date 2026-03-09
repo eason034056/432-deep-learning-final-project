@@ -41,7 +41,7 @@ from dataset import (
     load_processed_dataset
 )
 
-from models import MLPBaseline, CNN1DModel, TinyPointNet, PointNet2SSG, MMIDNet
+from models import MLPBaseline, CNN1DModel, TinyPointNet, MMIDNet
 
 
 def load_config(config_path: str) -> Dict:
@@ -118,19 +118,6 @@ def create_model(model_type: str, num_classes: int, config: Dict) -> nn.Module:
             dropout=dropout
         )
         print("Created Tiny PointNet model")
-        
-    elif model_type == 'pointnet2':
-        # PointNet++ with hierarchical Set Abstraction
-        dropout_sa = config['model'].get('dropout_sa', 0.2)
-        model = PointNet2SSG(
-            num_points=num_points,
-            num_channels=3,
-            num_classes=num_classes,
-            dropout=dropout,
-            dropout_sa=dropout_sa,
-            use_xyz=True
-        )
-        print("Created PointNet++ (SSG) model")
 
     elif model_type == 'mmidnet':
         # MMIDNet: Transform Block + Residual CNN + Global Max Pool + Dense
@@ -144,7 +131,7 @@ def create_model(model_type: str, num_classes: int, config: Dict) -> nn.Module:
         
     else:
         raise ValueError(f"Unknown model type: {model_type}. "
-                        f"Choose from: mlp, cnn1d, pointnet, pointnet2, mmidnet")
+                        f"Choose from: mlp, cnn1d, pointnet, mmidnet")
     
     # Print model parameter count
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -687,7 +674,7 @@ def main():
         '--model',
         type=str,
         default='pointnet',
-        choices=['mlp', 'cnn1d', 'pointnet', 'pointnet2', 'mmidnet'],
+        choices=['mlp', 'cnn1d', 'pointnet', 'mmidnet'],
         help='Model type to train'
     )
     parser.add_argument(

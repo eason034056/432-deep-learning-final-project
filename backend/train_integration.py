@@ -33,7 +33,7 @@ from dataset import (
     load_processed_dataset,
     FAUSTPointCloudDataset
 )
-from models import MLPAutoencoder, PointNet2Autoencoder, chamfer_distance
+from models import MLPAutoencoder, chamfer_distance
 
 from evaluate import evaluate_model as eval_model_original
 
@@ -47,7 +47,7 @@ import numpy as np
 from backend.utils import get_project_root
 
 def _is_autoencoder(model_type: str) -> bool:
-    return model_type in ('mlp_ae', 'pointnet2_ae')
+    return model_type == 'mlp_ae'
 
 
 def train_ae_model(model_type: str, config: dict, progress_callback=None) -> str:
@@ -105,12 +105,8 @@ def train_ae_model(model_type: str, config: dict, progress_callback=None) -> str
     dropout = config['model'].get('dropout', 0.1)
     latent_dim = config.get('autoencoder', {}).get('latent_dim', 128)
 
-    if model_type == 'mlp_ae':
-        model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
-                              hidden_dims=(256, 128), dropout=dropout)
-    else:
-        model = PointNet2Autoencoder(num_points=num_points, num_channels=3, latent_dim=1024,
-                                     dropout=dropout, use_xyz=True)
+    model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
+                           hidden_dims=(256, 128), dropout=dropout)
     model = model.to(device)
 
     criterion = lambda pred, target: chamfer_distance(pred, target, reduce='mean')
@@ -189,12 +185,8 @@ def evaluate_ae_model(model_type: str, checkpoint_path: str, config: dict) -> di
     dropout = config['model'].get('dropout', 0.1)
     latent_dim = config.get('autoencoder', {}).get('latent_dim', 128)
 
-    if model_type == 'mlp_ae':
-        model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
-                              hidden_dims=(256, 128), dropout=dropout)
-    else:
-        model = PointNet2Autoencoder(num_points=num_points, num_channels=3, latent_dim=1024,
-                                    dropout=dropout, use_xyz=True)
+    model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
+                           hidden_dims=(256, 128), dropout=dropout)
     model = model.to(device)
     ckpt = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(ckpt['model_state_dict'])
@@ -228,7 +220,7 @@ def train_model(model_type: str,
     callback support for the GUI to track progress in real-time.
     
     Args:
-        model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'pointnet2')
+        model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'mmidnet')
         config: Configuration dictionary
         progress_callback: Optional callback function(epoch, metrics)
         

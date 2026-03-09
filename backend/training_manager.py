@@ -185,7 +185,7 @@ class TrainingManager:
         Start a new training job
         
         Args:
-            model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'pointnet2')
+            model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'mmidnet')
             config: Configuration dictionary
             
         Returns:

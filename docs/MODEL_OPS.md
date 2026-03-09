@@ -34,7 +34,7 @@ This document describes the deployment architecture, model maintenance plan, and
 |-----------|------------|------|
 | **Data Source** | mmWave Radar / FAUST mesh | Raw 3D point cloud input |
 | **Preprocessing** | NumPy, custom pipeline | Normalize, sample 200 points, augment |
-| **Model Inference** | PyTorch | Classification (PointNet++) or Reconstruction (AE) |
+| **Model Inference** | PyTorch | Classification (PointNet Tiny) or Reconstruction (AE) |
 | **API Layer** | Flask | REST endpoints for inference, training status |
 | **Frontend** | HTML/JS/CSS | Web GUI for configuration and monitoring |
 | **Container** | Docker + Docker Compose | Portable deployment |
