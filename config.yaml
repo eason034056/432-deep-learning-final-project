@@ -1,0 +1,35 @@
+augmentation:
+  normalize: true
+  rotation_range: 30
+  translation_range: 0.2
+data:
+  normalize_center: true
+  normalize_scale: true
+  num_channels: 3
+  num_points: 200
+  processed_dir: data/processed
+  raw_dir: data/raw
+  samples_per_mesh: 100
+device: mps
+logging:
+  log_dir: results
+  save_best: true
+  save_interval: 10
+model:
+  cnn1d_kernel_size: 3
+  dropout: 0.2
+  num_classes: 10
+  type: pointnet
+autoencoder:
+  latent_dim: 128
+split:
+  seed: 1
+  test_ratio: 0.2
+  train_ratio: 0.7
+  val_ratio: 0.1
+training:
+  batch_size: 64
+  early_stopping_patience: 20
+  learning_rate: 0.001
+  num_epochs: 120
+  weight_decay: 0.0001

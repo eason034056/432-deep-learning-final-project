@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mmWave Human Identification - ML Training Platform</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <span class="gradient-text">mmWave Radar</span>
+                    <span class="subtitle">Human Identification Platform</span>
+                </h1>
+                <div class="status-indicator" id="serverStatus">
+                    <div class="status-dot"></div>
+                    <span>Server Connected</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- Section 1: Data Upload -->
+            <section class="card" id="uploadSection">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <span class="step-number">1</span>
+                        Data Upload
+                    </h2>
+                    <span class="badge" id="uploadBadge">Checking...</span>
+                </div>
+                <div class="card-body">
+                    <!-- Data Status Info -->
+                    <div class="info-box" id="dataStatusBox" style="display: none;">
+                        <div class="info-icon">ℹ️</div>
+                        <div class="info-text" id="dataStatusText"></div>
+                    </div>
+
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">📁</div>
+                        <h3>Drag & Drop Mesh Files</h3>
+                        <p>or click to browse</p>
+                        <p class="upload-hint">Supported formats: .ply, .obj, .stl, .off</p>
+                        <input type="file" id="fileInput" multiple accept=".ply,.obj,.stl,.off" hidden>
+                    </div>
+
+                    <!-- Upload Progress -->
+                    <div class="progress-container" id="uploadProgress" style="display: none;">
+                        <div class="progress-info">
+                            <span id="uploadProgressText">Uploading...</span>
+                            <span id="uploadProgressPercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="uploadProgressFill"></div>
+                        </div>
+                    </div>
+
+                    <!-- File List Controls -->
+                    <div class="file-list-header" id="fileListHeader" style="display: none;">
+                        <span class="file-count" id="fileCount">0 files</span>
+                        <button class="btn-text" id="toggleFileListBtn">
+                            <span class="icon">▼</span> Show All
+                        </button>
+                    </div>
+
+                    <div class="file-list collapsed" id="fileList"></div>
+                </div>
+            </section>
+
+            <!-- Section 2: Preprocessing Configuration -->
+            <section class="card" id="preprocessSection">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <span class="step-number">2</span>
+                        Preprocessing Configuration
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <!-- Preprocessing Status Info -->
+                    <div class="info-box" id="preprocessStatusBox" style="display: none;">
+                        <div class="info-icon">✅</div>
+                        <div class="info-text" id="preprocessStatusText"></div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="numPoints">Number of Points</label>
+                            <input type="number" id="numPoints" value="200" min="50" max="2048">
+                            <span class="form-hint">Points per sample (FPS sampling)</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="samplesPerMesh">Samples Per Mesh</label>
+                            <input type="number" id="samplesPerMesh" value="100" min="10" max="500">
+                            <span class="form-hint">Augmented samples per mesh</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="normalizeCenter">Normalize Center</label>
+                            <select id="normalizeCenter">
+                                <option value="true" selected>Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                            <span class="form-hint">Center mesh at origin</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="normalize">Normalize Scale</label>
+                            <select id="normalize">
+                                <option value="true" selected>Unit Sphere</option>
+                                <option value="false">None</option>
+                            </select>
+                            <span class="form-hint">Scale to unit sphere</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="rotationRange">Rotation Range (°)</label>
+                            <input type="number" id="rotationRange" value="30" min="0" max="360">
+                            <span class="form-hint">Data augmentation</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="translationRange">Translation Range (m)</label>
+                            <input type="number" id="translationRange" value="0.2" min="0" max="5" step="0.1">
+                            <span class="form-hint">Random translation</span>
+                        </div>
+                    </div>
+
+                    <!-- Preprocessing Progress -->
+                    <div class="progress-container" id="preprocessProgress" style="display: none;">
+                        <div class="progress-info">
+                            <span id="preprocessProgressText">Preprocessing...</span>
+                            <span id="preprocessProgressPercent">Processing</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="preprocessProgressFill" style="width: 50%;"></div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" id="preprocessBtn">
+                        <span>Preprocess Data</span>
+                        <div class="spinner" id="preprocessSpinner"></div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Section 3: Model Configuration -->
+            <section class="card" id="modelSection">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <span class="step-number">3</span>
+                        Model Configuration & Training
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="task-selector">
+                        <label class="task-label">Task Type</label>
+                        <div class="task-options">
+                            <div class="task-option selected" data-task="classification">
+                                <span class="task-name">Classification</span>
+                                <span class="task-desc">Human identification (10-class)</span>
+                            </div>
+                            <div class="task-option" data-task="autoencoder">
+                                <span class="task-name">Autoencoder</span>
+                                <span class="task-desc">Point cloud compression/reconstruction</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-selector" id="classificationModels">
+                        <div class="model-option" data-model="mlp">
+                            <h3>MLP Baseline</h3>
+                            <p>Simple fully-connected network</p>
+                        </div>
+                        <div class="model-option" data-model="cnn1d">
+                            <h3>1D-CNN</h3>
+                            <p>Convolutional neural network</p>
+                        </div>
+                        <div class="model-option selected" data-model="pointnet2">
+                            <h3>PointNet++</h3>
+                            <p>Hierarchical point cloud specialist</p>
+                        </div>
+                    </div>
+                    <div class="model-selector" id="autoencoderModels" style="display: none;">
+                        <div class="model-option" data-model="mlp_ae">
+                            <h3>MLP Autoencoder</h3>
+                            <p>Flatten-based compression (Challenger)</p>
+                        </div>
+                        <div class="model-option selected" data-model="pointnet2_ae">
+                            <h3>PointNet++ Autoencoder</h3>
+                            <p>Set abstraction encoder (Champion)</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="batchSize">Batch Size</label>
+                            <input type="number" id="batchSize" value="64" min="4" max="256">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="numEpochs">Number of Epochs</label>
+                            <input type="number" id="numEpochs" value="120" min="1" max="500">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="learningRate">Learning Rate</label>
+                            <input type="number" id="learningRate" value="0.001" min="0.00001" max="0.1" step="0.0001">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dropout">Dropout</label>
+                            <input type="number" id="dropout" value="0.2" min="0" max="0.9" step="0.1">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-success" id="trainBtn">
+                        <span>Start Training</span>
+                        <div class="spinner" id="trainSpinner"></div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Section 4: Training Monitor -->
+            <section class="card" id="monitorSection" style="display: none;">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <span class="step-number">4</span>
+                        Training Progress
+                    </h2>
+                    <span class="badge" id="trainingStatus">Initializing...</span>
+                </div>
+                <div class="card-body">
+                    <div class="progress-container">
+                        <div class="progress-info">
+                            <span id="progressText">Epoch 0/120</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">Train Loss</div>
+                            <div class="metric-value" id="trainLoss">-</div>
+                        </div>
+                        <div class="metric-card" id="trainAccCard">
+                            <div class="metric-label">Train Accuracy</div>
+                            <div class="metric-value" id="trainAcc">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Val Loss</div>
+                            <div class="metric-value" id="valLoss">-</div>
+                        </div>
+                        <div class="metric-card" id="valAccCard">
+                            <div class="metric-label">Val Accuracy</div>
+                            <div class="metric-value" id="valAcc">-</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-controls">
+                        <label class="checkbox-label">
+                            <input type="checkbox" checked data-dataset="0"> Train Loss
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" checked data-dataset="1"> Val Loss
+                        </label>
+                        <label class="checkbox-label" id="trainAccLabel">
+                            <input type="checkbox" checked data-dataset="2"> Train Acc
+                        </label>
+                        <label class="checkbox-label" id="valAccLabel">
+                            <input type="checkbox" checked data-dataset="3"> Val Acc
+                        </label>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="trainingChart"></canvas>
+                    </div>
+
+                    <div class="logs-container">
+                        <h3>Training Logs</h3>
+                        <div class="logs" id="trainingLogs"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 5: Results Visualization -->
+            <section class="card" id="resultsSection" style="display: none;">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <span class="step-number">5</span>
+                        Results & Evaluation
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary" id="evaluateBtn">
+                        <span>Generate Evaluation Report</span>
+                    </button>
+
+                    <div class="results-grid" id="resultsGrid">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 6: Download -->
+            <section class="card" id="downloadSection" style="display: none;">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <span class="step-number">6</span>
+                        Download
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="download-grid">
+                        <button class="btn btn-download" id="downloadModelBtn">
+                            <span class="download-icon">💾</span>
+                            <span>Download Model</span>
+                        </button>
+                        <button class="btn btn-download" id="downloadReportBtn">
+                            <span class="download-icon">📄</span>
+                            <span>Download Report</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>mmWave Radar Human Identification Platform</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

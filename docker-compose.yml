@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  ml-gui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mmwave-ml-platform
+    ports:
+      - "8080:5000"
+    volumes:
+      # Persist data between container restarts
+      - ./data:/app/data
+      - ./results:/app/results
+      # Mount source code for development (optional - comment out for production)
+      - ./src:/app/src
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - ./config.yaml:/app/config.yaml
+    environment:
+      # Configure device (cpu, cuda, or mps for Mac)
+      - DEVICE=cpu
+      - DEBUG=false
+      - PORT=5000
+      # Optional: Enable GPU support (requires nvidia-docker)
+      # - CUDA_VISIBLE_DEVICES=0
+    restart: unless-stopped
+    # For GPU support, uncomment the following:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+# Optional: Add a volume for persistent data
+volumes:
+  data:
+  results:

@@ -1,0 +1,39 @@
+# Exclude from Docker build context
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Data and results (mounted as volumes)
+data/
+results/
+*.pth
+*.npz
+
+# IDE and development
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+notebooks/
+paper.md
+roadmap.md
+
+# Scripts
+*.sh
+
+# Backup files
+*.backup

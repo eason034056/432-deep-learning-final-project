@@ -1,0 +1,106 @@
+====================================================================================================
+Unified Experiment Results Summary Report
+====================================================================================================
+
+Experiment Design:
+----------------------------------------------------------------------------------------------------
+This experiment tests the impact of centering on three models
+
+Centering Options:
+  1. With Centering: move point cloud center to (0,0,0) (keep body size)
+  2. No Centering: keep original coordinates and body size
+
+Models:
+  1. MLP: Multi-Layer Perceptron Baseline
+  2. CNN1D (k=3): 1D CNN with kernel_size=3 for local patterns
+  3. PointNet: PointNet with T-Net for transformation invariance
+
+Data Split: Grouped (No data leakage)
+Total Experiments: 2 × 3 = 6
+====================================================================================================
+
+DETAILED RESULTS:
+----------------------------------------------------------------------------------------------------
+      model model_type      centering center_type   val_acc  train_acc  val_loss  best_epoch
+        MLP        mlp With Centering with_center 20.181818        0.0  3.624535          14
+CNN1D (k=3)      cnn1d With Centering with_center 60.909091        0.0  2.097022          24
+   PointNet   pointnet With Centering with_center 71.727273        0.0  1.740634          22
+        MLP        mlp   No Centering   no_center 30.272727        0.0  2.150352           3
+CNN1D (k=3)      cnn1d   No Centering   no_center 59.090909        0.0  3.157511          13
+   PointNet   pointnet   No Centering   no_center 54.545455        0.0  3.477881          19
+
+KEY FINDINGS:
+====================================================================================================
+
+1. OVERALL BEST MODEL:
+----------------------------------------------------------------------------------------------------
+  Model: PointNet
+  Centering: With Centering
+  Validation Accuracy: 71.73%
+  Training Accuracy: 0.00%
+  Best Epoch: 22
+
+2. IMPACT OF CENTERING:
+----------------------------------------------------------------------------------------------------
+
+MLP:
+  With Centering: 20.18%
+  No Centering: 30.27%
+  Improvement: -10.09%
+  → Centering hurts performance
+
+CNN1D (k=3):
+  With Centering: 60.91%
+  No Centering: 59.09%
+  Improvement: +1.82%
+  → Centering has minimal impact
+
+PointNet:
+  With Centering: 71.73%
+  No Centering: 54.55%
+  Improvement: +17.18%
+  → Centering significantly improves performance
+
+3. MODEL RANKINGS:
+----------------------------------------------------------------------------------------------------
+
+With Centering:
+  1. PointNet: 71.73%
+  2. CNN1D (k=3): 60.91%
+  3. MLP: 20.18%
+
+No Centering:
+  1. CNN1D (k=3): 59.09%
+  2. PointNet: 54.55%
+  3. MLP: 30.27%
+
+4. OVERFITTING ANALYSIS:
+----------------------------------------------------------------------------------------------------
+
+MLP (With Centering):
+  Train-Val Gap: -20.18%
+  → Good generalization
+
+CNN1D (k=3) (With Centering):
+  Train-Val Gap: -60.91%
+  → Good generalization
+
+PointNet (With Centering):
+  Train-Val Gap: -71.73%
+  → Good generalization
+
+MLP (No Centering):
+  Train-Val Gap: -30.27%
+  → Good generalization
+
+CNN1D (k=3) (No Centering):
+  Train-Val Gap: -59.09%
+  → Good generalization
+
+PointNet (No Centering):
+  Train-Val Gap: -54.55%
+  → Good generalization
+
+====================================================================================================
+END OF REPORT
+====================================================================================================
