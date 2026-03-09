@@ -44,6 +44,7 @@ def create_ae_model(model_type: str, config: Dict) -> nn.Module:
     dropout = config['model'].get('dropout', 0.1)
     
     if model_type == 'mlp_ae':
+        print("Creating MLP Autoencoder...", flush=True)
         model = MLPAutoencoder(
             num_points=num_points,
             num_channels=3,
@@ -51,8 +52,8 @@ def create_ae_model(model_type: str, config: Dict) -> nn.Module:
             hidden_dims=(256, 128),
             dropout=dropout
         )
-        print("Created MLP Autoencoder")
     elif model_type == 'pointnet_ae':
+        print("Creating PointNet Autoencoder...", flush=True)
         model = PointNetAutoencoder(
             num_points=num_points,
             num_channels=3,
@@ -61,12 +62,11 @@ def create_ae_model(model_type: str, config: Dict) -> nn.Module:
             use_tnet=True,
             channel_dims=(64, 128, 1024)
         )
-        print("Created PointNet Autoencoder")
     else:
         raise ValueError(f"Unknown model: {model_type}. Use mlp_ae or pointnet_ae")
     
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Parameters: {n_params:,}")
+    print(f"Parameters: {n_params:,}", flush=True)
     return model
 
 
@@ -105,19 +105,22 @@ def main():
     parser.add_argument('--epochs', type=int, default=100)
     args = parser.parse_args()
     
+    print("train_ae: Starting...", flush=True)
     config = load_config(args.config)
     
     device = torch.device('cuda' if torch.cuda.is_available() else 
                           'mps' if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available() else 'cpu')
-    print(f"Device: {device}")
+    print(f"Device: {device}", flush=True)
     
     processed_path = Path(config['data']['processed_dir']) / 'faust_pc.npz'
     samples_per_mesh = config['data'].get('samples_per_mesh', 100)
     
     if processed_path.exists():
+        print("Loading processed dataset...", flush=True)
         data, labels, filenames, metadata = load_processed_dataset(str(processed_path))
         samples_per_mesh = metadata.get('samples_per_mesh', samples_per_mesh)
     else:
+        print("Loading raw FAUST dataset (this may take a while)...", flush=True)
         data, labels, filenames = load_faust_dataset(
             config['data']['raw_dir'],
             num_points=config['data']['num_points'],
@@ -144,11 +147,15 @@ def main():
                                           translation_range=config['augmentation']['translation_range'])
     val_dataset = FAUSTPointCloudDataset(X_val, y_val, augment=False)
     
+    # num_workers=0 avoids multiprocessing hangs on HPC/NFS; use 4 for faster local training
+    num_workers = 0
+    print(f"Creating DataLoaders (num_workers={num_workers})...", flush=True)
     train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'],
-                             shuffle=True, num_workers=4)
+                             shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
-                           shuffle=False, num_workers=4)
+                           shuffle=False, num_workers=num_workers)
     
+    print(f"Creating {args.model} model...", flush=True)
     model = create_ae_model(args.model, config).to(device)
     criterion = lambda pred, target: chamfer_distance(pred, target, reduce='mean')
     optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate'],
@@ -167,7 +174,7 @@ def main():
         writer.add_scalar('Loss/train', train_loss, epoch)
         writer.add_scalar('Loss/val', val_loss, epoch)
         
-        print(f"Epoch {epoch}: train_loss={train_loss:.6f}, val_loss={val_loss:.6f}")
+        print(f"Epoch {epoch}: train_loss={train_loss:.6f}, val_loss={val_loss:.6f}", flush=True)
         
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -177,7 +184,7 @@ def main():
                 'val_loss': val_loss,
                 'train_loss': train_loss
             }, ckpt_dir / 'model_best.pth')
-            print(f"  Saved best model (val_loss={val_loss:.6f})")
+            print(f"  Saved best model (val_loss={val_loss:.6f})", flush=True)
     
     writer.close()
     print(f"\nTraining complete. Best val_loss: {best_val_loss:.6f}")
