@@ -10,7 +10,7 @@ data:
   processed_dir: data/processed
   raw_dir: data/raw
   samples_per_mesh: 100
-device: mps
+device: cuda
 logging:
   log_dir: results
   save_best: true
