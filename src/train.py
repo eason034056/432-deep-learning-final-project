@@ -11,7 +11,7 @@ This script handles:
 
 Usage:
     python train.py --config config.yaml --model pointnet
-    python train.py --config config.yaml --model mlp --epochs 100
+    python train.py --config config.yaml --model mlp --gpu 3
 """
 
 import os
@@ -402,7 +402,7 @@ def load_checkpoint(model: nn.Module,
     return epoch, val_loss, val_acc
 
 
-def train(config: Dict, model_type: str, resume_from: Optional[str] = None) -> None:
+def train(config: Dict, model_type: str, resume_from: Optional[str] = None, gpu_id: Optional[int] = None) -> None:
     """
     Complete training pipeline.
     
@@ -418,6 +418,7 @@ def train(config: Dict, model_type: str, resume_from: Optional[str] = None) -> N
         config: configuration dictionary
         model_type: 'mlp', 'cnn1d', or 'pointnet'
         resume_from: optional checkpoint path to resume training
+        gpu_id: optional GPU device ID (e.g., 0, 1, 2, 3) to use. If None, uses default CUDA device.
     """
     print("=" * 80)
     print(f"Training {model_type.upper()} model")
@@ -428,7 +429,10 @@ def train(config: Dict, model_type: str, resume_from: Optional[str] = None) -> N
     if config['device'] == 'mps' and torch.backends.mps.is_available():
         device = torch.device('mps')
     elif config['device'] == 'cuda' and torch.cuda.is_available():
-        device = torch.device('cuda')
+        if gpu_id is not None:
+            device = torch.device(f'cuda:{gpu_id}')
+        else:
+            device = torch.device('cuda')
     else:
         device = torch.device('cpu')
     print(f"Using device: {device}")
@@ -683,6 +687,12 @@ def main():
         default=None,
         help='Path to checkpoint to resume from'
     )
+    parser.add_argument(
+        '--gpu',
+        type=int,
+        default=None,
+        help='GPU device ID to use (e.g., 0, 1, 2, 3). If not specified, uses default CUDA device.'
+    )
     
     args = parser.parse_args()
     
@@ -690,7 +700,7 @@ def main():
     config = load_config(args.config)
     
     # Start training
-    train(config, args.model, args.resume)
+    train(config, args.model, args.resume, gpu_id=args.gpu)
 
 
 if __name__ == '__main__':
