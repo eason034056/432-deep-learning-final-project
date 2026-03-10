@@ -301,7 +301,7 @@ def create_autoencoder_from_config(model_type: str, config: Dict[str, Any]) -> n
     raise ValueError(f"Unknown model: {model_type}. Use mlp_ae or pointnet_ae")
 
 
-def chamfer_distance(pred: torch.Tensor, target: torch.Tensor, 
+def chamfer_distance(pred: torch.Tensor, target: torch.Tensor,
                      reduce: str = 'mean') -> torch.Tensor:
     """
     Chamfer Distance between two point sets.
@@ -331,4 +331,8 @@ def chamfer_distance(pred: torch.Tensor, target: torch.Tensor,
     cd = pred_to_target.mean(dim=1) + target_to_pred.mean(dim=1)  # (B,)
     if reduce == 'mean':
         return cd.mean()
-    return cd.sum()
+    if reduce == 'sum':
+        return cd.sum()
+    if reduce == 'none':
+        return cd
+    raise ValueError("reduce must be one of: 'mean', 'sum', 'none'")

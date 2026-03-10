@@ -509,7 +509,10 @@ def save_processed_dataset(data: np.ndarray,
                           save_path: str,
                           filenames: Optional[List[str]] = None,
                           normalized: bool = True,
-                          samples_per_mesh: Optional[int] = None) -> None:
+                          samples_per_mesh: Optional[int] = None,
+                          normalize_center: Optional[bool] = None,
+                          normalize_scale: Optional[bool] = None,
+                          num_points: Optional[int] = None) -> None:
     """
     Save preprocessed dataset to disk for faster loading later.
     
@@ -527,6 +530,15 @@ def save_processed_dataset(data: np.ndarray,
         'labels': labels,
         'normalized': np.array(int(normalized), dtype=np.int32)
     }
+
+    if normalize_center is not None:
+        save_kwargs['normalize_center'] = np.array(int(normalize_center), dtype=np.int32)
+
+    if normalize_scale is not None:
+        save_kwargs['normalize_scale'] = np.array(int(normalize_scale), dtype=np.int32)
+
+    if num_points is not None:
+        save_kwargs['num_points'] = np.array(num_points, dtype=np.int32)
 
     if samples_per_mesh is not None:
         save_kwargs['samples_per_mesh'] = np.array(samples_per_mesh, dtype=np.int32)
@@ -557,8 +569,20 @@ def load_processed_dataset(load_path: str) -> Tuple[np.ndarray, np.ndarray, Opti
     data = loaded['data']
     labels = loaded['labels']
     filenames = loaded['filenames'].tolist() if 'filenames' in loaded else None
+    legacy_normalized = bool(int(loaded['normalized'])) if 'normalized' in loaded else True
     metadata: Dict[str, Any] = {
-        'normalized': bool(int(loaded['normalized'])) if 'normalized' in loaded else True,
+        'normalized': legacy_normalized,
+        'normalize_center': (
+            bool(int(loaded['normalize_center']))
+            if 'normalize_center' in loaded
+            else True
+        ),
+        'normalize_scale': (
+            bool(int(loaded['normalize_scale']))
+            if 'normalize_scale' in loaded
+            else legacy_normalized
+        ),
+        'num_points': int(loaded['num_points']) if 'num_points' in loaded else data.shape[1],
         'samples_per_mesh': int(loaded['samples_per_mesh']) if 'samples_per_mesh' in loaded else None
     }
     print(f"Loaded processed dataset from {load_path}")

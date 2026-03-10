@@ -29,6 +29,7 @@ from tqdm import tqdm
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from dataset import (
+    FAUSTPointCloudDataset,
     load_processed_dataset,
     load_faust_dataset,
     stratified_split_grouped,
@@ -78,6 +79,92 @@ class EarlyStopping:
         return self.counter >= self.patience
 
 
+def should_reprocess_dataset(
+    filenames,
+    metadata: Dict,
+    num_points: int,
+    samples_per_mesh: int,
+    normalize_center: bool,
+    normalize_scale: bool,
+) -> bool:
+    """Check whether cached processed data matches the active config."""
+    if filenames is None:
+        print("  Reprocessing: cached dataset is missing filenames metadata.", flush=True)
+        return True
+
+    if metadata.get('num_points') != num_points:
+        print("  Reprocessing: cached dataset num_points does not match config.", flush=True)
+        return True
+
+    if metadata.get('samples_per_mesh') != samples_per_mesh:
+        print("  Reprocessing: cached dataset samples_per_mesh does not match config.", flush=True)
+        return True
+
+    if metadata.get('normalize_center') != normalize_center:
+        print("  Reprocessing: cached dataset normalize_center does not match config.", flush=True)
+        return True
+
+    if metadata.get('normalize_scale') != normalize_scale:
+        print("  Reprocessing: cached dataset normalize_scale does not match config.", flush=True)
+        return True
+
+    return False
+
+
+def build_processed_dataset(
+    config: Dict,
+    processed_path: Path,
+    num_points: int,
+    samples_per_mesh: int,
+    normalize_center: bool,
+    normalize_scale: bool,
+):
+    """Load cached dataset if compatible, otherwise rebuild it."""
+    if processed_path.exists():
+        print("Loading processed dataset...", flush=True)
+        data, labels, filenames, metadata = load_processed_dataset(str(processed_path))
+        if not should_reprocess_dataset(
+            filenames=filenames,
+            metadata=metadata,
+            num_points=num_points,
+            samples_per_mesh=samples_per_mesh,
+            normalize_center=normalize_center,
+            normalize_scale=normalize_scale,
+        ):
+            return data, labels, filenames, metadata
+        processed_path.unlink(missing_ok=True)
+
+    print("Loading raw FAUST dataset (this may take a while)...", flush=True)
+    data, labels, filenames = load_faust_dataset(
+        config['data']['raw_dir'],
+        num_points=num_points,
+        samples_per_mesh=samples_per_mesh,
+        use_fps=True,
+        normalize_center=normalize_center,
+        normalize_scale=normalize_scale
+    )
+    processed_path.parent.mkdir(parents=True, exist_ok=True)
+    save_processed_dataset(
+        data,
+        labels,
+        str(processed_path),
+        filenames=filenames,
+        normalized=normalize_scale,
+        samples_per_mesh=samples_per_mesh,
+        normalize_center=normalize_center,
+        normalize_scale=normalize_scale,
+        num_points=num_points,
+    )
+    metadata = {
+        'normalized': normalize_scale,
+        'normalize_center': normalize_center,
+        'normalize_scale': normalize_scale,
+        'num_points': num_points,
+        'samples_per_mesh': samples_per_mesh,
+    }
+    return data, labels, filenames, metadata
+
+
 def train_one_epoch(model, train_loader, criterion, optimizer, device, epoch):
     model.train()
     total_loss = 0.0
@@ -112,6 +199,12 @@ def main():
     parser.add_argument('--model', choices=['mlp_ae', 'pointnet_ae'], default='mlp_ae')
     parser.add_argument('--epochs', type=int, default=None,
                         help='Optional override for autoencoder.train.num_epochs')
+    parser.add_argument(
+        '--overfit-samples',
+        type=int,
+        default=0,
+        help='If > 0, train on only the first N training samples and reuse them for validation.'
+    )
     parser.add_argument('--gpu', type=int, default=None,
                         help='GPU id to use (e.g. 3). If not set, uses default cuda:0. Use when other GPUs are busy.')
     args = parser.parse_args()
@@ -130,28 +223,19 @@ def main():
     print(f"Device: {device}", flush=True)
     
     processed_path = Path(config['data']['processed_dir']) / 'faust_pc.npz'
+    num_points = config['data']['num_points']
     samples_per_mesh = config['data'].get('samples_per_mesh', 100)
     normalize_center = config['data'].get('normalize_center', True)
     normalize_scale = config['data'].get('normalize_scale', True)
-    
-    if processed_path.exists():
-        print("Loading processed dataset...", flush=True)
-        data, labels, filenames, metadata = load_processed_dataset(str(processed_path))
-        samples_per_mesh = metadata.get('samples_per_mesh', samples_per_mesh)
-    else:
-        print("Loading raw FAUST dataset (this may take a while)...", flush=True)
-        data, labels, filenames = load_faust_dataset(
-            config['data']['raw_dir'],
-            num_points=config['data']['num_points'],
-            samples_per_mesh=samples_per_mesh,
-            use_fps=True,
-            normalize_center=normalize_center,
-            normalize_scale=normalize_scale
-        )
-        processed_path.parent.mkdir(parents=True, exist_ok=True)
-        save_processed_dataset(data, labels, str(processed_path), filenames=filenames,
-                              normalized=normalize_center or normalize_scale,
-                              samples_per_mesh=samples_per_mesh)
+    data, labels, filenames, metadata = build_processed_dataset(
+        config=config,
+        processed_path=processed_path,
+        num_points=num_points,
+        samples_per_mesh=samples_per_mesh,
+        normalize_center=normalize_center,
+        normalize_scale=normalize_scale,
+    )
+    samples_per_mesh = metadata.get('samples_per_mesh', samples_per_mesh)
     
     X_train, y_train, X_val, y_val, X_test, y_test = stratified_split_grouped(
         data, labels, filenames, samples_per_mesh,
@@ -160,12 +244,40 @@ def main():
         test_ratio=config['split']['test_ratio'],
         random_seed=config['split']['seed']
     )
+
+    if args.overfit_samples > 0:
+        overfit_n = min(args.overfit_samples, len(X_train))
+        if overfit_n <= 0:
+            raise ValueError("--overfit-samples must be positive")
+        print(
+            f"Overfit debug mode: using first {overfit_n} training samples for both train and validation.",
+            flush=True
+        )
+        print(
+            "Recommendation: use low dropout and near-zero weight decay to test memorization capacity.",
+            flush=True
+        )
+        X_train = X_train[:overfit_n]
+        y_train = y_train[:overfit_n]
+        X_val = X_train.copy()
+        y_val = y_train.copy()
     
-    from dataset import FAUSTPointCloudDataset
-    train_dataset = FAUSTPointCloudDataset(X_train, y_train, augment=ae_train_cfg['augment'],
-                                          rotation_range=config['augmentation']['rotation_range'],
-                                          translation_range=config['augmentation']['translation_range'])
-    val_dataset = FAUSTPointCloudDataset(X_val, y_val, augment=False)
+    train_dataset = FAUSTPointCloudDataset(
+        X_train,
+        y_train,
+        augment=ae_train_cfg['augment'] and args.overfit_samples <= 0,
+        rotation_range=config['augmentation']['rotation_range'],
+        translation_range=config['augmentation']['translation_range'],
+        normalize_center=normalize_center,
+        normalize_scale=normalize_scale,
+    )
+    val_dataset = FAUSTPointCloudDataset(
+        X_val,
+        y_val,
+        augment=False,
+        normalize_center=normalize_center,
+        normalize_scale=normalize_scale,
+    )
     
     # num_workers=0 avoids multiprocessing hangs on HPC/NFS; use 4 for faster local training
     num_workers = 0
@@ -184,8 +296,12 @@ def main():
         weight_decay=ae_train_cfg['weight_decay']
     )
     
+    run_suffix = f"overfit_{args.overfit_samples}" if args.overfit_samples > 0 else None
     log_dir = Path(config['logging']['log_dir']) / 'tensorboard' / args.model
     ckpt_dir = Path(config['logging']['log_dir']) / 'checkpoints' / args.model
+    if run_suffix is not None:
+        log_dir = log_dir / run_suffix
+        ckpt_dir = ckpt_dir / run_suffix
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     writer = SummaryWriter(log_dir=str(log_dir))
     
