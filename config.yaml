@@ -32,7 +32,7 @@ autoencoder:
     latent_dim: 128
     channel_dims: [64, 128, 256]
     decoder_dims: [512, 256, 128]
-    dropout: 0.5
+    dropout: 0.2
     use_tnet: false
   train:
     batch_size: 64
