@@ -37,13 +37,6 @@ env/
 data/raw/
 data/processed/
 
-# Results
-results/checkpoints/
-results/tensorboard/
-results/reports/
-results/jobs.json
-results/*.png
-results/*.csv
 
 # IDE
 .vscode/

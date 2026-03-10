@@ -1,0 +1,4 @@
+Model,Test Accuracy (%),F1-Score (%),ROC-AUC,Precision (%),Recall (%),Parameters,Checkpoint Epoch,Checkpoint Val Acc (%)
+MLP,10.85,10.94,0.5296,11.33,10.85,"419,210",8,13.73
+CNN1D,34.80,33.90,0.7851,37.54,34.80,"158,986",8,57.09
+POINTNET,72.00,72.04,0.9600,78.23,72.00,"1,606,419",26,76.18

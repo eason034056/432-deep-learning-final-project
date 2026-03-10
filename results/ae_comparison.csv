@@ -1,0 +1,3 @@
+model,chamfer_distance,cd_median,cd_std,cd_max,parameters,inference_time_sec,inference_ms_per_sample
+mlp_ae,0.015800,0.014414,0.005920,0.049512,870236,0.3628,0.18
+pointnet_ae,0.004430,0.002753,0.003628,0.016544,506115,0.4559,0.23
