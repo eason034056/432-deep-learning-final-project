@@ -4,9 +4,9 @@ augmentation:
   translation_range: 0.0
 data:
   normalize_center: true
-  normalize_scale: true
+  normalize_scale: false
   num_channels: 3
-  num_points: 1000
+  num_points: 500
   processed_dir: data/processed
   raw_dir: data/raw
   samples_per_mesh: 100
@@ -18,9 +18,9 @@ logging:
 model:
   cnn1d_kernel_size: 3
   dropout: 0.5
-  dropout_sa: 0.3
+  dropout_sa: 0.5
   num_classes: 10
-  type: pointnet  # Options: mlp, cnn1d, pointnet, mmidnet
+  type: pointnet  # Options: mlp, cnn1d, pointnet
 autoencoder:
   latent_dim: 128
 split:
