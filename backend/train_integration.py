@@ -33,7 +33,7 @@ from dataset import (
     load_processed_dataset,
     FAUSTPointCloudDataset
 )
-from models import MLPAutoencoder, PointNetAutoencoder, chamfer_distance
+from models import chamfer_distance, create_autoencoder_from_config, get_autoencoder_config
 
 from evaluate import evaluate_model as eval_model_original
 
@@ -52,6 +52,8 @@ def _is_autoencoder(model_type: str) -> bool:
 
 def train_ae_model(model_type: str, config: dict, progress_callback=None) -> str:
     """Train autoencoder with progress callback for GUI."""
+    ae_cfg = get_autoencoder_config(config)
+    train_cfg = ae_cfg['train']
     project_root = Path(get_project_root())
     processed_path = project_root / config['data']['processed_dir'] / 'faust_pc.npz'
     raw_dir = project_root / config['data']['raw_dir']
@@ -84,14 +86,14 @@ def train_ae_model(model_type: str, config: dict, progress_callback=None) -> str
         random_seed=config['split']['seed']
     )
 
-    train_dataset = FAUSTPointCloudDataset(X_train, y_train, augment=True,
+    train_dataset = FAUSTPointCloudDataset(X_train, y_train, augment=train_cfg['augment'],
         rotation_range=config['augmentation']['rotation_range'],
         translation_range=config['augmentation']['translation_range'])
     val_dataset = FAUSTPointCloudDataset(X_val, y_val, augment=False)
 
-    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'],
+    train_loader = DataLoader(train_dataset, batch_size=train_cfg['batch_size'],
                              shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
+    val_loader = DataLoader(val_dataset, batch_size=train_cfg['batch_size'],
                            shuffle=False, num_workers=2)
 
     if config.get('device') == 'mps' and torch.backends.mps.is_available():
@@ -101,26 +103,16 @@ def train_ae_model(model_type: str, config: dict, progress_callback=None) -> str
     else:
         device = torch.device('cpu')
 
-    num_points = config['data']['num_points']
-    dropout = config['model'].get('dropout', 0.1)
-    latent_dim = config.get('autoencoder', {}).get('latent_dim', 128)
-
-    if model_type == 'mlp_ae':
-        model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
-                              hidden_dims=(256, 128), dropout=dropout)
-    else:
-        model = PointNetAutoencoder(num_points=num_points, num_channels=3, latent_dim=1024,
-                                   dropout=dropout, use_tnet=True, channel_dims=(64, 128, 1024))
-    model = model.to(device)
+    model = create_autoencoder_from_config(model_type, config).to(device)
 
     criterion = lambda pred, target: chamfer_distance(pred, target, reduce='mean')
     optimizer = torch.optim.Adam(model.parameters(),
-                                 lr=config['training']['learning_rate'],
-                                 weight_decay=config['training']['weight_decay'])
+                                 lr=train_cfg['learning_rate'],
+                                 weight_decay=train_cfg['weight_decay'])
 
     checkpoint_dir = project_root / config['logging']['log_dir'] / 'checkpoints' / model_type
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    num_epochs = config['training']['num_epochs']
+    num_epochs = train_cfg['num_epochs']
     best_val_loss = float('inf')
 
     for epoch in range(1, num_epochs + 1):
@@ -162,6 +154,7 @@ def train_ae_model(model_type: str, config: dict, progress_callback=None) -> str
 
 def evaluate_ae_model(model_type: str, checkpoint_path: str, config: dict) -> dict:
     """Evaluate autoencoder and return Chamfer Distance."""
+    ae_cfg = get_autoencoder_config(config)
     project_root = Path(get_project_root())
     processed_path = project_root / config['data']['processed_dir'] / 'faust_pc.npz'
     data, labels, filenames, metadata = load_processed_dataset(str(processed_path))
@@ -176,7 +169,7 @@ def evaluate_ae_model(model_type: str, checkpoint_path: str, config: dict) -> di
     )
 
     test_dataset = FAUSTPointCloudDataset(X_test, y_test, augment=False)
-    test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=ae_cfg['eval']['batch_size'], shuffle=False)
 
     if config.get('device') == 'mps' and torch.backends.mps.is_available():
         device = torch.device('mps')
@@ -185,17 +178,7 @@ def evaluate_ae_model(model_type: str, checkpoint_path: str, config: dict) -> di
     else:
         device = torch.device('cpu')
 
-    num_points = config['data']['num_points']
-    dropout = config['model'].get('dropout', 0.1)
-    latent_dim = config.get('autoencoder', {}).get('latent_dim', 128)
-
-    if model_type == 'mlp_ae':
-        model = MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=latent_dim,
-                              hidden_dims=(256, 128), dropout=dropout)
-    else:
-        model = PointNetAutoencoder(num_points=num_points, num_channels=3, latent_dim=1024,
-                                   dropout=dropout, use_tnet=True, channel_dims=(64, 128, 1024))
-    model = model.to(device)
+    model = create_autoencoder_from_config(model_type, config).to(device)
     ckpt = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(ckpt['model_state_dict'])
 
@@ -228,7 +211,7 @@ def train_model(model_type: str,
     callback support for the GUI to track progress in real-time.
     
     Args:
-        model_type: Model type ('mlp', 'cnn1d', 'pointnet', 'mmidnet')
+        model_type: Model type ('mlp', 'cnn1d', or 'pointnet')
         config: Configuration dictionary
         progress_callback: Optional callback function(epoch, metrics)
         

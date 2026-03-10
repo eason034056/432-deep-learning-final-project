@@ -1,5 +1,5 @@
 /**
- * mmWave Human Identification Platform - Frontend Application
+ * Point Cloud Human Identification Platform - Frontend Application
  * 
  * Handles:
  * - File uploads
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-    console.log('Initializing mmWave Training Platform...');
+    console.log('Initializing point cloud training platform...');
     setupChartDefaults();
     updateWorkflowButtons();
 }
@@ -327,9 +327,7 @@ async function startTraining() {
             training: {
                 batch_size: parseInt(document.getElementById('batchSize').value),
                 num_epochs: parseInt(document.getElementById('numEpochs').value),
-                learning_rate: parseFloat(document.getElementById('learningRate').value),
-                weight_decay: 0.0001,
-                early_stopping_patience: 20
+                learning_rate: parseFloat(document.getElementById('learningRate').value)
             },
             model: {
                 dropout: parseFloat(document.getElementById('dropout').value)
@@ -965,9 +963,7 @@ async function startTrainingWithValidation() {
             training: {
                 batch_size: parseInt(document.getElementById('batchSize').value),
                 num_epochs: parseInt(document.getElementById('numEpochs').value),
-                learning_rate: parseFloat(document.getElementById('learningRate').value),
-                weight_decay: 0.0001,
-                early_stopping_patience: 20
+                learning_rate: parseFloat(document.getElementById('learningRate').value)
             },
             model: {
                 dropout: parseFloat(document.getElementById('dropout').value)

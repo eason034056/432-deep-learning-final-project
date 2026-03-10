@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for mmWave Human Identification Platform
+# Multi-stage Dockerfile for the point cloud training platform
 # Optimized for PyTorch ML training with web GUI
 
 # Base stage with Python and PyTorch

@@ -78,8 +78,8 @@ def create_model(model_type: str, num_classes: int, config: Dict) -> nn.Module:
     Example:
         >>> model = create_model('pointnet', num_classes=10, config=cfg)
     """
-    num_points = config['data']['num_points']  # 200
-    dropout = config['model']['dropout']  # 0.3
+    num_points = config['data']['num_points']
+    dropout = config['model']['dropout']
     
     if model_type == 'mlp':
         # MLP baseline model
@@ -119,19 +119,9 @@ def create_model(model_type: str, num_classes: int, config: Dict) -> nn.Module:
         )
         print("Created Tiny PointNet model")
 
-    elif model_type == 'mmidnet':
-        # MMIDNet: Transform Block + Residual CNN + Global Max Pool + Dense
-        model = MMIDNet(
-            num_points=num_points,
-            num_channels=3,
-            num_classes=num_classes,
-            dropout=dropout
-        )
-        print("Created MMIDNet model")
-        
     else:
         raise ValueError(f"Unknown model type: {model_type}. "
-                        f"Choose from: mlp, cnn1d, pointnet, mmidnet")
+                        f"Choose from: mlp, cnn1d, pointnet")
     
     # Print model parameter count
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -679,7 +669,7 @@ def main():
         '--model',
         type=str,
         default='pointnet',
-        choices=['mlp', 'cnn1d', 'pointnet', 'mmidnet'],
+        choices=['mlp', 'cnn1d', 'pointnet'],
         help='Model type to train'
     )
     parser.add_argument(

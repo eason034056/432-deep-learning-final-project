@@ -460,7 +460,7 @@ def main():
     parser.add_argument(
         '--model',
         type=str,
-        choices=['mlp', 'cnn1d', 'pointnet', 'mmidnet'],
+        choices=['mlp', 'cnn1d', 'pointnet'],
         help='Model type to evaluate (single model mode)'
     )
     parser.add_argument(

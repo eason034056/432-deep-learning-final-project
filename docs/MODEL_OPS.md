@@ -1,144 +1,114 @@
 # Model Operations (ModelOps)
 
-This document describes the deployment architecture, model maintenance plan, and parameter update process for the mmWave Radar Human Identification Platform.
+This document summarizes how the current repository is operated as a small point-cloud ML platform.
 
----
-
-## 1. Deployment Architecture
-
-### 1.1 High-Level Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        DEPLOYMENT ARCHITECTURE                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐   │
-│   │  Raw Point   │     │ Preprocessing│     │   Model Inference     │   │
-│   │  Clouds      │────▶│  Pipeline    │────▶│   (Classification /   │   │
-│   │  (mmWave)    │     │  (normalize, │     │    Autoencoder)      │   │
-│   └──────────────┘     │   augment)   │     └──────────┬───────────┘   │
-│                        └──────────────┘                │                │
-│                                                         ▼                │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐   │
-│   │  Web GUI     │◀────│ Flask REST   │◀────│   Predictions /      │   │
-│   │  (Frontend)  │     │  API         │     │   Reconstructions    │   │
-│   └──────────────┘     └──────────────┘     └──────────────────────┘   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 1.2 Component Description
-
-| Component | Technology | Role |
-|-----------|------------|------|
-| **Data Source** | mmWave Radar / FAUST mesh | Raw 3D point cloud input |
-| **Preprocessing** | NumPy, custom pipeline | Normalize, sample 200 points, augment |
-| **Model Inference** | PyTorch | Classification (PointNet Tiny) or Reconstruction (MLP AE / PointNet AE) |
-| **API Layer** | Flask | REST endpoints for inference, training status |
-| **Frontend** | HTML/JS/CSS | Web GUI for configuration and monitoring |
-| **Container** | Docker + Docker Compose | Portable deployment |
-
-### 1.3 Deployment Flow
-
-1. **Build**: `docker-compose build` creates the application image.
-2. **Run**: `bash start.sh` or `docker-compose up` starts backend + frontend.
-3. **Access**: Users open `http://localhost:8080` for the GUI.
-4. **Inference**: Point clouds are sent via API, preprocessed, passed to the model, and results returned.
-
-### 1.4 Mermaid Diagram
+## 1. System Overview
+The repository supports both experimentation and demonstration. Raw FAUST meshes are loaded from disk, converted into processed point clouds, then used for either classification or autoencoder training. The same core ML code is accessible through both CLI scripts and a Flask-backed GUI.
 
 ```mermaid
-flowchart TB
-    subgraph DataFlow [Data Flow]
-        Raw[Raw Point Clouds] --> Preprocess[Preprocessing]
-        Preprocess --> Model[Model Inference]
-        Model --> Output[Predictions]
-    end
-    
-    subgraph Deployment [Deployment Architecture]
-        API[Flask REST API]
-        GUI[Web GUI]
-        Model --> API
-        API --> GUI
-    end
-    
-    subgraph Maintenance [Maintenance]
-        Monitor[Performance Monitoring]
-        Retrain[Retraining Pipeline]
-        Config[Config Versioning]
-        Monitor --> Retrain
-        Retrain --> Config
-    end
+flowchart LR
+    rawMeshes[RawMeshes] --> preprocess[Preprocessing]
+    preprocess --> processedCache[ProcessedCache]
+    processedCache --> classification[ClassificationTraining]
+    processedCache --> autoencoder[AutoencoderTraining]
+    classification --> reports[ReportsAndCheckpoints]
+    autoencoder --> reports
+    reports --> api[FlaskAPI]
+    api --> gui[BrowserGUI]
 ```
 
----
+## 2. Main Components
+| Component | Technology | Responsibility |
+| --- | --- | --- |
+| Data source | FAUST meshes | Input geometry for all current experiments |
+| Preprocessing | Python, NumPy, custom dataset code | Sampling, centering, normalization, caching |
+| Training | PyTorch | Classification and autoencoder training |
+| API | Flask | Job creation, status polling, report download |
+| Frontend | HTML, JS, CSS | Browser workflow for training and monitoring |
+| Packaging | Docker, Docker Compose | Reproducible startup for the GUI stack |
 
-## 2. Model Maintenance Plan
+## 3. Supported Models
+Classification:
 
-### 2.1 Monitoring Metrics
+- `mlp`
+- `cnn1d`
+- `pointnet`
 
-| Metric | Target | Action if Degraded |
-|--------|--------|-------------------|
-| **Validation Accuracy** (Classification) | > 70% | Trigger retraining |
-| **Chamfer Distance** (Autoencoder) | < 0.01 | Review data quality |
-| **Inference Latency** | < 100ms per sample | Optimize or scale |
-| **Data Drift** | Monitor distribution shift | Collect new data, retrain |
+Autoencoder:
 
-### 2.2 Retraining Triggers
+- `mlp_ae`
+- `pointnet_ae`
 
-- **Scheduled**: Quarterly retraining with latest data.
-- **Performance drop**: Validation accuracy drops > 5% vs. baseline.
-- **New subjects**: When new identities are added to the system.
-- **Data drift**: Significant change in point cloud statistics (e.g., new sensor).
+The repository no longer treats `mmidnet` as an implemented runtime option. It may still be relevant as background inspiration, but it is not a selectable model in the current workflow.
 
-### 2.3 Retraining Pipeline
+## 4. Active Operating Assumptions
+Current source-of-truth settings come from `config.yaml`:
 
-1. **Data collection**: Ensure new/updated point clouds in `data/raw/`.
-2. **Preprocessing**: Run `python src/train.py` or use GUI to regenerate `data/processed/`.
-3. **Training**: Execute `bash train_all_models.sh` or train via GUI.
-4. **Validation**: Run `python src/evaluate.py --compare` to verify metrics.
-5. **Deployment**: Replace `results/checkpoints/<model>/model_best.pth` with new checkpoint.
-6. **Rollback**: Keep previous checkpoint as `model_previous.pth` for quick revert.
+- `data.num_points = 500`
+- `data.normalize_center = true`
+- `data.normalize_scale = false`
+- `augmentation.rotation_range = 360`
+- `augmentation.translation_range = 0.0`
+- classification training batch size = 64
+- autoencoder training batch size = 64
 
----
+These values should stay aligned with README, report, and presentation materials whenever outputs are regenerated.
 
-## 3. Parameter Update Process
+## 5. Standard Workflow
+### GUI workflow
+1. Run `bash start.sh`.
+2. Open `http://localhost:8080`.
+3. Upload or reuse FAUST meshes.
+4. Preprocess data.
+5. Select classification or autoencoder mode.
+6. Start training and monitor progress.
+7. Generate and download artifacts.
 
-### 3.1 Configuration Management
+### CLI workflow
+```bash
+python src/train.py --config config.yaml --model pointnet
+python src/evaluate.py --compare --models mlp cnn1d pointnet
+python src/train_ae.py --config config.yaml --model pointnet_ae
+python src/evaluate_ae.py --config config.yaml --compare
+```
 
-- **File**: `config.yaml` holds all hyperparameters.
-- **Versioning**: Track `config.yaml` in Git; tag releases (e.g., `v1.0-config`).
-- **Override**: Support environment variables or CLI args for deployment-specific overrides.
+## 6. Monitoring and Artifacts
+Current outputs include:
 
-### 3.2 Key Parameters and Update Guidelines
+- checkpoints in `results/checkpoints/`
+- JSON reports in `results/reports/`
+- comparison tables in `results/model_comparison.csv` and `results/ae_comparison.md`
+- experiment summaries in `results/experiments/summary_report.txt`
+- TensorBoard logs in `results/tensorboard/`
 
-| Parameter | Location | Update Process |
-|-----------|----------|----------------|
-| `learning_rate` | config.yaml | Reduce if loss oscillates; increase if convergence is slow |
-| `batch_size` | config.yaml | Increase for faster training if GPU memory allows |
-| `num_epochs` | config.yaml | Extend if validation still improving at end |
-| `dropout` | config.yaml | Increase if overfitting (train >> val accuracy) |
-| `early_stopping_patience` | config.yaml | Increase to allow longer training |
+Useful monitoring signals:
 
-### 3.3 A/B Testing for New Models
+- classification validation accuracy
+- classification ROC-AUC
+- autoencoder validation Chamfer Distance
+- training and validation loss curves
 
-1. **Train challenger**: Train new model (e.g., different architecture).
-2. **Evaluate**: Compare with champion via `evaluate.py --compare`.
-3. **Shadow deployment**: Run challenger in parallel, log predictions without serving.
-4. **Promote**: If challenger outperforms champion on validation + shadow metrics, replace champion.
+## 7. Maintenance Guidelines
+Use the following conditions as retraining triggers:
 
-### 3.4 Rollback Procedure
+- preprocessing settings change
+- new data is added to `data/raw/`
+- performance falls below the current PointNet / PointNet AE baselines
+- a new experiment changes the recommended champion model
 
-1. Restore previous checkpoint: `cp model_previous.pth model_best.pth`.
-2. Restart API/container if needed.
-3. Verify inference with a small test set.
-4. Document incident and root cause.
+When changing model or preprocessing settings:
 
----
+1. regenerate the processed dataset if necessary
+2. retrain the relevant models
+3. regenerate comparison tables
+4. update README, report, and presentation with the new measured outputs
 
-## 4. References
+## 8. Limitations
+- The platform currently uses FAUST rather than true radar point clouds.
+- The GUI report format is JSON, not a polished publication artifact.
+- The backend is oriented toward training-job orchestration rather than production inference serving.
 
-- **Docker**: https://docs.docker.com/
-- **Flask**: https://flask.palletsprojects.com/
-- **PyTorch Model Serving**: https://pytorch.org/serve/
+## 9. References
+- Docker: https://docs.docker.com/
+- Flask: https://flask.palletsprojects.com/
+- PyTorch: https://pytorch.org/

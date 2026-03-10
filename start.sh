@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Quick Start Script for mmWave Human Identification Platform
+# Quick Start Script for the Point Cloud Training Platform
 # This script helps you get started with the GUI application
 
 set -e
 
 echo "=========================================="
-echo "mmWave ML Platform - Quick Start"
+echo "Point Cloud ML Platform - Quick Start"
 echo "=========================================="
 echo ""
 

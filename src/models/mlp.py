@@ -240,6 +240,6 @@ class DeepMLPBaseline(nn.Module):
 #    Cannot learn local patterns like "shoulder shape" or "limb proportions"
 #    that are crucial for human identification.
 #
-# Expected performance: ~20-40% accuracy (from paper)
-# This will be surpassed by CNN and PointNet models.
+# In this repository, MLP is intended as a sanity-check baseline.
+# It is usually outperformed by CNN and PointNet models on point-cloud tasks.
 

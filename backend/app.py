@@ -1,5 +1,5 @@
 """
-Flask backend server for mmWave Human Identification GUI
+Flask backend server for the point cloud training GUI.
 
 This server provides REST API endpoints for:
 - Uploading raw mesh data
@@ -184,10 +184,10 @@ def list_data_files():
 @app.route('/api/preprocess', methods=['POST'])
 def preprocess_data():
     """
-    Preprocess raw mesh data
-    
+    Preprocess raw mesh data.
+
     Expects JSON with preprocessing parameters:
-    - num_points: int (default: 200)
+    - num_points: int
     - normalize: bool
     - augmentation settings
     """
@@ -196,8 +196,6 @@ def preprocess_data():
         
         # Update config with preprocessing params
         config = load_config()
-        config['data'].update(params.get('data', {}))
-        config['augmentation'].update(params.get('augmentation', {}))
         config['data'].update(params.get('data', {}))
         config['augmentation'].update(params.get('augmentation', {}))
         save_config(config)
@@ -230,10 +228,10 @@ def preprocess_data():
 @app.route('/api/train', methods=['POST'])
 def train_model():
     """
-    Start model training
-    
+    Start model training.
+
     Expects JSON with:
-    - model_type: 'mlp', 'cnn1d', 'pointnet', or 'mmidnet'
+    - model_type: 'mlp', 'cnn1d', 'pointnet', 'mlp_ae', or 'pointnet_ae'
     - hyperparameters: batch_size, learning_rate, num_epochs, etc.
     """
     try:
@@ -241,7 +239,7 @@ def train_model():
         model_type = params.get('model_type', 'pointnet')
         
         # Validate model type (classification + autoencoder)
-        valid_models = ['mlp', 'cnn1d', 'pointnet', 'mmidnet', 'mlp_ae', 'pointnet_ae']
+        valid_models = ['mlp', 'cnn1d', 'pointnet', 'mlp_ae', 'pointnet_ae']
         if model_type not in valid_models:
             return jsonify({
                 'success': False,
@@ -250,8 +248,19 @@ def train_model():
         
         # Update config with training params
         config = load_config()
-        config['model']['type'] = model_type
-        config['training'].update(params.get('training', {}))
+        training_updates = params.get('training', {})
+        model_updates = params.get('model', {})
+        if model_type.endswith('_ae'):
+            config['autoencoder']['train'].update(training_updates)
+            # Mirror shared fields so GUI job tracking stays aligned.
+            config['training'].update(training_updates)
+            ae_key = model_type.replace('_ae', '')
+            if ae_key in config.get('autoencoder', {}):
+                config['autoencoder'][ae_key].update(model_updates)
+        else:
+            config['model']['type'] = model_type
+            config['training'].update(training_updates)
+            config['model'].update(model_updates)
         save_config(config)
         
         # Start training as a background job

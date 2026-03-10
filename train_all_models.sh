@@ -3,7 +3,7 @@
 # Usage: bash train_all_models.sh
 
 echo "======================================================================"
-echo "Training All Models for mmWave Human Identification POC"
+echo "Training all classification models for the point cloud pipeline"
 echo "======================================================================"
 
 # Check if config.yaml exists

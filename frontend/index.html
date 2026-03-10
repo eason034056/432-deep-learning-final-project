@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>mmWave Human Identification - ML Training Platform</title>
+    <title>Point Cloud Training Platform</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,7 @@
         <header class="header">
             <div class="header-content">
                 <h1 class="title">
-                    <span class="gradient-text">mmWave Radar</span>
+                    <span class="gradient-text">Point Cloud</span>
                     <span class="subtitle">Human Identification Platform</span>
                 </h1>
                 <div class="status-indicator" id="serverStatus">
@@ -96,7 +96,7 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="numPoints">Number of Points</label>
-                            <input type="number" id="numPoints" value="200" min="50" max="2048">
+                            <input type="number" id="numPoints" value="500" min="50" max="2048">
                             <span class="form-hint">Points per sample (FPS sampling)</span>
                         </div>
 
@@ -118,21 +118,21 @@
                         <div class="form-group">
                             <label for="normalize">Normalize Scale</label>
                             <select id="normalize">
-                                <option value="true" selected>Unit Sphere</option>
-                                <option value="false">None</option>
+                                <option value="true">Unit Sphere</option>
+                                <option value="false" selected>None</option>
                             </select>
                             <span class="form-hint">Scale to unit sphere</span>
                         </div>
 
                         <div class="form-group">
                             <label for="rotationRange">Rotation Range (°)</label>
-                            <input type="number" id="rotationRange" value="30" min="0" max="360">
+                            <input type="number" id="rotationRange" value="360" min="0" max="360">
                             <span class="form-hint">Data augmentation</span>
                         </div>
 
                         <div class="form-group">
                             <label for="translationRange">Translation Range (m)</label>
-                            <input type="number" id="translationRange" value="0.2" min="0" max="5" step="0.1">
+                            <input type="number" id="translationRange" value="0.0" min="0" max="5" step="0.1">
                             <span class="form-hint">Random translation</span>
                         </div>
                     </div>
@@ -220,7 +220,7 @@
 
                         <div class="form-group">
                             <label for="dropout">Dropout</label>
-                            <input type="number" id="dropout" value="0.2" min="0" max="0.9" step="0.1">
+                            <input type="number" id="dropout" value="0.5" min="0" max="0.9" step="0.1">
                         </div>
                     </div>
 
@@ -341,7 +341,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>mmWave Radar Human Identification Platform</p>
+            <p>Point Cloud Human Identification Platform</p>
         </footer>
     </div>
 
