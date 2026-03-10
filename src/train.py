@@ -41,7 +41,7 @@ from dataset import (
     load_processed_dataset
 )
 
-from models import MLPBaseline, CNN1DModel, TinyPointNet, MMIDNet
+from models import MLPBaseline, CNN1DModel, TinyPointNet
 
 
 def load_config(config_path: str) -> Dict:
