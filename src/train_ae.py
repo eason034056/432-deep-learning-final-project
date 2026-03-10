@@ -20,7 +20,6 @@ import argparse
 import yaml
 from pathlib import Path
 from typing import Dict, Optional
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -35,7 +34,7 @@ from dataset import (
     stratified_split_grouped,
     save_processed_dataset,
 )
-from models import MLPAutoencoder, PointNetAutoencoder, chamfer_distance
+from models import chamfer_distance, create_autoencoder_from_config, get_autoencoder_config
 
 
 def load_config(config_path: str) -> Dict:
@@ -44,35 +43,39 @@ def load_config(config_path: str) -> Dict:
 
 
 def create_ae_model(model_type: str, config: Dict) -> nn.Module:
-    num_points = config['data']['num_points']
-    latent_dim = config.get('autoencoder', {}).get('latent_dim', 128)
-    dropout = config['model'].get('dropout', 0.1)
-    
+    ae_cfg = get_autoencoder_config(config)
+
     if model_type == 'mlp_ae':
         print("Creating MLP Autoencoder...", flush=True)
-        model = MLPAutoencoder(
-            num_points=num_points,
-            num_channels=3,
-            latent_dim=latent_dim,
-            hidden_dims=(256, 128),
-            dropout=dropout
-        )
     elif model_type == 'pointnet_ae':
         print("Creating PointNet Autoencoder...", flush=True)
-        model = PointNetAutoencoder(
-            num_points=num_points,
-            num_channels=3,
-            latent_dim=128,
-            dropout=0.5,
-            use_tnet=False,
-            channel_dims=(64, 128, 256)
-        )
     else:
         raise ValueError(f"Unknown model: {model_type}. Use mlp_ae or pointnet_ae")
-    
+
+    model = create_autoencoder_from_config(model_type, config)
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Parameters: {n_params:,}", flush=True)
+    print(f"Autoencoder config: {ae_cfg[model_type.replace('_ae', '')]}", flush=True)
     return model
+
+
+class EarlyStopping:
+    """Stop training when validation loss stops improving."""
+
+    def __init__(self, patience: int, min_delta: float = 0.0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best_loss: Optional[float] = None
+        self.counter = 0
+
+    def step(self, val_loss: float) -> bool:
+        if self.best_loss is None or val_loss < self.best_loss - self.min_delta:
+            self.best_loss = val_loss
+            self.counter = 0
+            return False
+
+        self.counter += 1
+        return self.counter >= self.patience
 
 
 def train_one_epoch(model, train_loader, criterion, optimizer, device, epoch):
@@ -107,13 +110,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='config.yaml')
     parser.add_argument('--model', choices=['mlp_ae', 'pointnet_ae'], default='mlp_ae')
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=None,
+                        help='Optional override for autoencoder.train.num_epochs')
     parser.add_argument('--gpu', type=int, default=None,
                         help='GPU id to use (e.g. 3). If not set, uses default cuda:0. Use when other GPUs are busy.')
     args = parser.parse_args()
     
     print("train_ae: Starting...", flush=True)
     config = load_config(args.config)
+    ae_cfg = get_autoencoder_config(config)
+    ae_train_cfg = ae_cfg['train']
     
     if torch.cuda.is_available():
         device = torch.device(f'cuda:{args.gpu}' if args.gpu is not None else 'cuda')
@@ -125,6 +131,8 @@ def main():
     
     processed_path = Path(config['data']['processed_dir']) / 'faust_pc.npz'
     samples_per_mesh = config['data'].get('samples_per_mesh', 100)
+    normalize_center = config['data'].get('normalize_center', True)
+    normalize_scale = config['data'].get('normalize_scale', True)
     
     if processed_path.exists():
         print("Loading processed dataset...", flush=True)
@@ -137,12 +145,13 @@ def main():
             num_points=config['data']['num_points'],
             samples_per_mesh=samples_per_mesh,
             use_fps=True,
-            normalize_center=True,
-            normalize_scale=True
+            normalize_center=normalize_center,
+            normalize_scale=normalize_scale
         )
         processed_path.parent.mkdir(parents=True, exist_ok=True)
         save_processed_dataset(data, labels, str(processed_path), filenames=filenames,
-                              normalized=True, samples_per_mesh=samples_per_mesh)
+                              normalized=normalize_center or normalize_scale,
+                              samples_per_mesh=samples_per_mesh)
     
     X_train, y_train, X_val, y_val, X_test, y_test = stratified_split_grouped(
         data, labels, filenames, samples_per_mesh,
@@ -153,7 +162,7 @@ def main():
     )
     
     from dataset import FAUSTPointCloudDataset
-    train_dataset = FAUSTPointCloudDataset(X_train, y_train, augment=True,
+    train_dataset = FAUSTPointCloudDataset(X_train, y_train, augment=ae_train_cfg['augment'],
                                           rotation_range=config['augmentation']['rotation_range'],
                                           translation_range=config['augmentation']['translation_range'])
     val_dataset = FAUSTPointCloudDataset(X_val, y_val, augment=False)
@@ -161,24 +170,36 @@ def main():
     # num_workers=0 avoids multiprocessing hangs on HPC/NFS; use 4 for faster local training
     num_workers = 0
     print(f"Creating DataLoaders (num_workers={num_workers})...", flush=True)
-    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'],
+    train_loader = DataLoader(train_dataset, batch_size=ae_train_cfg['batch_size'],
                              shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'],
+    val_loader = DataLoader(val_dataset, batch_size=ae_train_cfg['batch_size'],
                            shuffle=False, num_workers=num_workers)
     
     print(f"Creating {args.model} model...", flush=True)
     model = create_ae_model(args.model, config).to(device)
     criterion = lambda pred, target: chamfer_distance(pred, target, reduce='mean')
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate'],
-                                 weight_decay=config['training']['weight_decay'])
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=ae_train_cfg['learning_rate'],
+        weight_decay=ae_train_cfg['weight_decay']
+    )
     
     log_dir = Path(config['logging']['log_dir']) / 'tensorboard' / args.model
     ckpt_dir = Path(config['logging']['log_dir']) / 'checkpoints' / args.model
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     writer = SummaryWriter(log_dir=str(log_dir))
     
+    num_epochs = args.epochs if args.epochs is not None else ae_train_cfg['num_epochs']
+    early_cfg = ae_train_cfg['early_stopping']
+    early_stopping = None
+    if early_cfg['enabled']:
+        early_stopping = EarlyStopping(
+            patience=early_cfg['patience'],
+            min_delta=early_cfg['min_delta']
+        )
+
     best_val_loss = float('inf')
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(1, num_epochs + 1):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch)
         val_loss = validate(model, val_loader, criterion, device)
         
@@ -196,6 +217,14 @@ def main():
                 'train_loss': train_loss
             }, ckpt_dir / 'model_best.pth')
             print(f"  Saved best model (val_loss={val_loss:.6f})", flush=True)
+
+        if early_stopping is not None and early_stopping.step(val_loss):
+            print(
+                f"  Early stopping triggered at epoch {epoch} "
+                f"(patience={early_cfg['patience']}, min_delta={early_cfg['min_delta']})",
+                flush=True
+            )
+            break
     
     writer.close()
     print(f"\nTraining complete. Best val_loss: {best_val_loss:.6f}")

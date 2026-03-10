@@ -11,7 +11,7 @@ Used for the second cognitive problem: Point Cloud Compression (Autoencoder).
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 from .pointnet_tiny import PointNetBackbone
 
@@ -102,7 +102,8 @@ class PointNetAutoencoder(nn.Module):
                  latent_dim: int = 1024,
                  dropout: float = 0.1,
                  use_tnet: bool = True,
-                 channel_dims: Tuple[int, ...] = (64, 128, 1024)):
+                 channel_dims: Tuple[int, ...] = (64, 128, 1024),
+                 decoder_dims: Tuple[int, ...] = (512, 256, 128)):
         super(PointNetAutoencoder, self).__init__()
         self.num_points = num_points
         self.num_channels = num_channels
@@ -131,19 +132,21 @@ class PointNetAutoencoder(nn.Module):
         grid = torch.stack([xx.flatten(), yy.flatten()], dim=1)[:num_points]
         self.register_buffer('grid', grid.float())
 
-        self.decoder_mlp = nn.Sequential(
-            nn.Linear(latent_dim + 2, 512),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Linear(256, 128),
-            nn.ReLU(inplace=True),
-            nn.Linear(128, 3)
-        )
+        decoder_layers = []
+        in_dim = latent_dim + 2
+        for i, hidden_dim in enumerate(decoder_dims):
+            decoder_layers.append(nn.Linear(in_dim, hidden_dim))
+            if i < len(decoder_dims) - 1:
+                decoder_layers.extend([
+                    nn.BatchNorm1d(hidden_dim),
+                    nn.ReLU(inplace=True),
+                    nn.Dropout(dropout)
+                ])
+            else:
+                decoder_layers.append(nn.ReLU(inplace=True))
+            in_dim = hidden_dim
+        decoder_layers.append(nn.Linear(in_dim, 3))
+        self.decoder_mlp = nn.Sequential(*decoder_layers)
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """x: (B, N, 3) -> latent: (B, latent_dim)"""
@@ -167,6 +170,135 @@ class PointNetAutoencoder(nn.Module):
         z = self.encode(x)
         recon = self.decode(z)
         return recon, z
+
+
+def _require_section(config: Dict[str, Any], key: str, path: str) -> Dict[str, Any]:
+    section = config.get(key)
+    if not isinstance(section, dict):
+        raise KeyError(f"Missing required config section: {path}")
+    return section
+
+
+def _require_value(config: Dict[str, Any], key: str, path: str) -> Any:
+    if key not in config:
+        raise KeyError(f"Missing required config value: {path}")
+    return config[key]
+
+
+def _to_tuple(value: Any, path: str) -> Tuple[int, ...]:
+    if not isinstance(value, (list, tuple)) or not value:
+        raise ValueError(f"{path} must be a non-empty list or tuple")
+    return tuple(int(v) for v in value)
+
+
+def get_autoencoder_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate and normalize autoencoder-specific configuration."""
+    data_cfg = _require_section(config, 'data', 'data')
+    ae_cfg = _require_section(config, 'autoencoder', 'autoencoder')
+    common_cfg = _require_section(ae_cfg, 'common', 'autoencoder.common')
+    mlp_cfg = _require_section(ae_cfg, 'mlp', 'autoencoder.mlp')
+    pointnet_cfg = _require_section(ae_cfg, 'pointnet', 'autoencoder.pointnet')
+    train_cfg = _require_section(ae_cfg, 'train', 'autoencoder.train')
+    eval_cfg = _require_section(ae_cfg, 'eval', 'autoencoder.eval')
+    early_stopping_cfg = _require_section(
+        train_cfg, 'early_stopping', 'autoencoder.train.early_stopping'
+    )
+
+    num_points = int(_require_value(data_cfg, 'num_points', 'data.num_points'))
+    num_channels = int(
+        common_cfg.get('num_channels', data_cfg.get('num_channels'))
+    )
+
+    if num_channels <= 0:
+        raise ValueError("autoencoder.common.num_channels must be positive")
+
+    return {
+        'common': {
+            'num_points': num_points,
+            'num_channels': num_channels,
+        },
+        'mlp': {
+            'latent_dim': int(_require_value(mlp_cfg, 'latent_dim', 'autoencoder.mlp.latent_dim')),
+            'hidden_dims': _to_tuple(_require_value(mlp_cfg, 'hidden_dims', 'autoencoder.mlp.hidden_dims'),
+                                     'autoencoder.mlp.hidden_dims'),
+            'dropout': float(_require_value(mlp_cfg, 'dropout', 'autoencoder.mlp.dropout')),
+        },
+        'pointnet': {
+            'latent_dim': int(_require_value(pointnet_cfg, 'latent_dim', 'autoencoder.pointnet.latent_dim')),
+            'channel_dims': _to_tuple(
+                _require_value(pointnet_cfg, 'channel_dims', 'autoencoder.pointnet.channel_dims'),
+                'autoencoder.pointnet.channel_dims'
+            ),
+            'decoder_dims': _to_tuple(
+                pointnet_cfg.get('decoder_dims', (512, 256, 128)),
+                'autoencoder.pointnet.decoder_dims'
+            ),
+            'dropout': float(_require_value(pointnet_cfg, 'dropout', 'autoencoder.pointnet.dropout')),
+            'use_tnet': bool(_require_value(pointnet_cfg, 'use_tnet', 'autoencoder.pointnet.use_tnet')),
+        },
+        'train': {
+            'batch_size': int(_require_value(train_cfg, 'batch_size', 'autoencoder.train.batch_size')),
+            'learning_rate': float(
+                _require_value(train_cfg, 'learning_rate', 'autoencoder.train.learning_rate')
+            ),
+            'weight_decay': float(
+                _require_value(train_cfg, 'weight_decay', 'autoencoder.train.weight_decay')
+            ),
+            'num_epochs': int(_require_value(train_cfg, 'num_epochs', 'autoencoder.train.num_epochs')),
+            'augment': bool(_require_value(train_cfg, 'augment', 'autoencoder.train.augment')),
+            'early_stopping': {
+                'enabled': bool(
+                    _require_value(
+                        early_stopping_cfg, 'enabled', 'autoencoder.train.early_stopping.enabled'
+                    )
+                ),
+                'patience': int(
+                    _require_value(
+                        early_stopping_cfg, 'patience', 'autoencoder.train.early_stopping.patience'
+                    )
+                ),
+                'min_delta': float(
+                    _require_value(
+                        early_stopping_cfg, 'min_delta', 'autoencoder.train.early_stopping.min_delta'
+                    )
+                ),
+            },
+        },
+        'eval': {
+            'batch_size': int(_require_value(eval_cfg, 'batch_size', 'autoencoder.eval.batch_size')),
+            'num_samples': int(_require_value(eval_cfg, 'num_samples', 'autoencoder.eval.num_samples')),
+        },
+    }
+
+
+def create_autoencoder_from_config(model_type: str, config: Dict[str, Any]) -> nn.Module:
+    """Build an autoencoder from the normalized project config."""
+    ae_cfg = get_autoencoder_config(config)
+    common_cfg = ae_cfg['common']
+
+    if model_type == 'mlp_ae':
+        mlp_cfg = ae_cfg['mlp']
+        return MLPAutoencoder(
+            num_points=common_cfg['num_points'],
+            num_channels=common_cfg['num_channels'],
+            latent_dim=mlp_cfg['latent_dim'],
+            hidden_dims=mlp_cfg['hidden_dims'],
+            dropout=mlp_cfg['dropout'],
+        )
+
+    if model_type == 'pointnet_ae':
+        pointnet_cfg = ae_cfg['pointnet']
+        return PointNetAutoencoder(
+            num_points=common_cfg['num_points'],
+            num_channels=common_cfg['num_channels'],
+            latent_dim=pointnet_cfg['latent_dim'],
+            dropout=pointnet_cfg['dropout'],
+            use_tnet=pointnet_cfg['use_tnet'],
+            channel_dims=pointnet_cfg['channel_dims'],
+            decoder_dims=pointnet_cfg['decoder_dims'],
+        )
+
+    raise ValueError(f"Unknown model: {model_type}. Use mlp_ae or pointnet_ae")
 
 
 def chamfer_distance(pred: torch.Tensor, target: torch.Tensor, 

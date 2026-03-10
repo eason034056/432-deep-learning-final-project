@@ -26,7 +26,7 @@ from mpl_toolkits.mplot3d import Axes3D
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from dataset import load_processed_dataset, stratified_split_grouped, FAUSTPointCloudDataset
-from models import MLPAutoencoder, PointNetAutoencoder, chamfer_distance
+from models import chamfer_distance, create_autoencoder_from_config, get_autoencoder_config
 
 
 def load_config(config_path: str) -> Dict:
@@ -35,17 +35,7 @@ def load_config(config_path: str) -> Dict:
 
 
 def create_ae_model(model_type: str, config: Dict) -> torch.nn.Module:
-    num_points = config['data']['num_points']
-    dropout = config['model'].get('dropout', 0.1)
-    
-    if model_type == 'mlp_ae':
-        return MLPAutoencoder(num_points=num_points, num_channels=3, latent_dim=128,
-                              hidden_dims=(256, 128), dropout=dropout)
-    elif model_type == 'pointnet_ae':
-        return PointNetAutoencoder(num_points=num_points, num_channels=3, latent_dim=128,
-                                  dropout=0.5, use_tnet=False, channel_dims=(64, 128, 256))
-    else:
-        raise ValueError(f"Unknown model: {model_type}. Use mlp_ae or pointnet_ae")
+    return create_autoencoder_from_config(model_type, config)
 
 
 def evaluate_ae(model, test_loader, device) -> Tuple[float, np.ndarray, np.ndarray, float]:
@@ -176,10 +166,17 @@ def main():
     parser.add_argument('--model', choices=['mlp_ae', 'pointnet_ae'], help='Single model mode')
     parser.add_argument('--checkpoint', help='Path to checkpoint (single model)')
     parser.add_argument('--compare', action='store_true', help='Compare both models')
-    parser.add_argument('--num_samples', type=int, default=4, help='Number of samples for multi-sample visualization')
+    parser.add_argument(
+        '--num_samples',
+        type=int,
+        default=None,
+        help='Optional override for autoencoder.eval.num_samples'
+    )
     args = parser.parse_args()
     
     config = load_config(args.config)
+    ae_cfg = get_autoencoder_config(config)
+    ae_eval_cfg = ae_cfg['eval']
     device = torch.device('cuda' if torch.cuda.is_available() else 
                           'mps' if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available() else 'cpu')
     
@@ -196,7 +193,8 @@ def main():
     )
     
     test_dataset = FAUSTPointCloudDataset(X_test, y_test, augment=False)
-    test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=ae_eval_cfg['batch_size'], shuffle=False)
+    num_samples = args.num_samples if args.num_samples is not None else ae_eval_cfg['num_samples']
     
     results_dir = Path(config['logging']['log_dir'])
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -256,7 +254,7 @@ def main():
                     all_orig_shared,
                     recon_dict,
                     str(results_dir / 'ae_reconstruction_multi_sample.png'),
-                    num_samples=args.num_samples,
+                    num_samples=num_samples,
                     title="Multi-Sample Reconstruction: Original vs MLP AE vs PointNet AE",
                 )
 
@@ -290,7 +288,7 @@ def main():
             all_orig,
             {args.model: all_recon},
             str(results_dir / f'ae_reconstruction_multi_sample_{args.model}.png'),
-            num_samples=args.num_samples,
+            num_samples=num_samples,
             title=f"Multi-Sample Reconstruction: {args.model} (CD={avg_cd:.4f})",
         )
 
