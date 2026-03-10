@@ -580,13 +580,14 @@ def train(config: Dict, model_type: str, resume_from: Optional[str] = None, gpu_
     
     # Resume from checkpoint if specified
     start_epoch = 0
-    best_val_acc = 0.0
+    best_val_loss = float('inf')
     
     if resume_from:
-        start_epoch, _, best_val_acc = load_checkpoint(
+        start_epoch, best_val_loss, _ = load_checkpoint(
             model, optimizer, resume_from, device
         )
         start_epoch += 1  # Start from next epoch
+        early_stopping.best_loss = best_val_loss
     
     # ========== Training Loop ==========
     print("\n" + "=" * 80)
@@ -622,9 +623,9 @@ def train(config: Dict, model_type: str, resume_from: Optional[str] = None, gpu_
         # Learning rate scheduling
         scheduler.step(val_loss)
         
-        # Save best model
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
+        # Save best model using the same metric as scheduler/early stopping
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             save_path = checkpoint_dir / 'model_best.pth'
             save_checkpoint(model, optimizer, epoch, val_loss, val_acc, str(save_path))
         
