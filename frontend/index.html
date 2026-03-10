@@ -1,351 +1,620 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Point Cloud Training Platform</title>
+    <title>Point Cloud Human Identification Platform</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
-
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <h1 class="title">
-                    <span class="gradient-text">Point Cloud</span>
-                    <span class="subtitle">Human Identification Platform</span>
-                </h1>
-                <div class="status-indicator" id="serverStatus">
-                    <div class="status-dot"></div>
-                    <span>Server Connected</span>
+    <div class="page-shell">
+        <header class="topbar">
+            <div class="brand-block">
+                <p class="eyebrow">Guided Lab Notebook</p>
+                <h1 class="brand-title">Point Cloud Human Identification Platform</h1>
+                <p class="brand-copy">
+                    A compact experiment studio for dataset intake, preprocessing, model runs, evaluation,
+                    and export-ready artifacts.
+                </p>
+            </div>
+
+            <div class="header-panel">
+                <div class="status-cluster">
+                    <div class="status-pill" id="serverStatus">
+                        <span class="status-dot"></span>
+                        <span>Checking server</span>
+                    </div>
+                    <div class="status-pill status-pill-secondary">
+                        <span class="mini-label">Run</span>
+                        <span id="runStatusBadge">No active run</span>
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn btn-ghost" id="refreshWorkspaceBtn" type="button">Refresh Workspace</button>
+                    <button class="btn btn-ghost" id="resetViewBtn" type="button">Reset View</button>
+                    <button class="btn btn-ghost" id="viewCurrentRunBtn" type="button">Focus Current Run</button>
                 </div>
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
+        <div class="workspace-intro">
+            <div class="intro-card intro-card-primary">
+                <p class="intro-label">Current mode</p>
+                <p class="intro-value" id="introMode">Dataset Intake</p>
+                <p class="intro-copy" id="introCopy">Upload or review mesh files to start the pipeline.</p>
+            </div>
+            <div class="intro-card">
+                <p class="intro-label">Pipeline health</p>
+                <p class="intro-value" id="pipelineHealth">Waiting for data</p>
+                <p class="intro-copy" id="pipelineHealthCopy">No processed dataset has been prepared yet.</p>
+            </div>
+            <div class="intro-card">
+                <p class="intro-label">Latest checkpoint</p>
+                <p class="intro-value" id="latestCheckpoint">No run yet</p>
+                <p class="intro-copy" id="latestCheckpointCopy">Start a training job to generate checkpoints and reports.</p>
+            </div>
+        </div>
 
-            <!-- Section 1: Data Upload -->
-            <section class="card" id="uploadSection">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <span class="step-number">1</span>
-                        Data Upload
-                    </h2>
-                    <span class="badge" id="uploadBadge">Checking...</span>
+        <div class="app-shell" id="workspaceShell">
+            <nav class="workflow-rail" id="workflowRail" aria-label="Workflow stages">
+                <div class="workflow-rail-header">
+                    <p class="rail-kicker">Workflow</p>
+                    <h2>Experiment stages</h2>
                 </div>
-                <div class="card-body">
-                    <!-- Data Status Info -->
-                    <div class="info-box" id="dataStatusBox" style="display: none;">
-                        <div class="info-icon">ℹ️</div>
-                        <div class="info-text" id="dataStatusText"></div>
-                    </div>
 
-                    <div class="upload-zone" id="uploadZone">
-                        <div class="upload-icon">📁</div>
-                        <h3>Drag & Drop Mesh Files</h3>
-                        <p>or click to browse</p>
-                        <p class="upload-hint">Supported formats: .ply, .obj, .stl, .off</p>
-                        <input type="file" id="fileInput" multiple accept=".ply,.obj,.stl,.off" hidden>
-                    </div>
+                <button class="rail-step" type="button" data-stage-target="dataset">
+                    <span class="rail-step-index">01</span>
+                    <span class="rail-step-copy">
+                        <span class="rail-step-name">Dataset</span>
+                        <span class="rail-step-summary" id="railSummary-dataset">Awaiting mesh intake.</span>
+                    </span>
+                    <span class="rail-step-status" id="railState-dataset">active</span>
+                </button>
 
-                    <!-- Upload Progress -->
-                    <div class="progress-container" id="uploadProgress" style="display: none;">
-                        <div class="progress-info">
-                            <span id="uploadProgressText">Uploading...</span>
-                            <span id="uploadProgressPercent">0%</span>
+                <button class="rail-step" type="button" data-stage-target="preprocess">
+                    <span class="rail-step-index">02</span>
+                    <span class="rail-step-copy">
+                        <span class="rail-step-name">Preprocess</span>
+                        <span class="rail-step-summary" id="railSummary-preprocess">Sampling and normalization profile.</span>
+                    </span>
+                    <span class="rail-step-status" id="railState-preprocess">locked</span>
+                </button>
+
+                <button class="rail-step" type="button" data-stage-target="configure">
+                    <span class="rail-step-index">03</span>
+                    <span class="rail-step-copy">
+                        <span class="rail-step-name">Configure</span>
+                        <span class="rail-step-summary" id="railSummary-configure">Task, model, and hyperparameters.</span>
+                    </span>
+                    <span class="rail-step-status" id="railState-configure">locked</span>
+                </button>
+
+                <button class="rail-step" type="button" data-stage-target="train">
+                    <span class="rail-step-index">04</span>
+                    <span class="rail-step-copy">
+                        <span class="rail-step-name">Train</span>
+                        <span class="rail-step-summary" id="railSummary-train">Live run control and monitoring.</span>
+                    </span>
+                    <span class="rail-step-status" id="railState-train">locked</span>
+                </button>
+
+                <button class="rail-step" type="button" data-stage-target="evaluate">
+                    <span class="rail-step-index">05</span>
+                    <span class="rail-step-copy">
+                        <span class="rail-step-name">Evaluate</span>
+                        <span class="rail-step-summary" id="railSummary-evaluate">Generate findings and inspect metrics.</span>
+                    </span>
+                    <span class="rail-step-status" id="railState-evaluate">locked</span>
+                </button>
+
+                <button class="rail-step" type="button" data-stage-target="export">
+                    <span class="rail-step-index">06</span>
+                    <span class="rail-step-copy">
+                        <span class="rail-step-name">Export</span>
+                        <span class="rail-step-summary" id="railSummary-export">Bundle checkpoint and report.</span>
+                    </span>
+                    <span class="rail-step-status" id="railState-export">locked</span>
+                </button>
+            </nav>
+
+            <main class="stage-stack">
+                <section class="stage-card" data-stage="dataset">
+                    <div class="stage-header">
+                        <div>
+                            <p class="stage-kicker">Stage 01</p>
+                            <h2 class="stage-title">Dataset Intake</h2>
+                            <p class="stage-description">Bring raw FAUST meshes into the workspace and confirm they are valid inputs for the pipeline.</p>
                         </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="uploadProgressFill"></div>
-                        </div>
-                    </div>
-
-                    <!-- File List Controls -->
-                    <div class="file-list-header" id="fileListHeader" style="display: none;">
-                        <span class="file-count" id="fileCount">0 files</span>
-                        <button class="btn-text" id="toggleFileListBtn">
-                            <span class="icon">▼</span> Show All
-                        </button>
-                    </div>
-
-                    <div class="file-list collapsed" id="fileList"></div>
-                </div>
-            </section>
-
-            <!-- Section 2: Preprocessing Configuration -->
-            <section class="card" id="preprocessSection">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <span class="step-number">2</span>
-                        Preprocessing Configuration
-                    </h2>
-                </div>
-                <div class="card-body">
-                    <!-- Preprocessing Status Info -->
-                    <div class="info-box" id="preprocessStatusBox" style="display: none;">
-                        <div class="info-icon">✅</div>
-                        <div class="info-text" id="preprocessStatusText"></div>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="numPoints">Number of Points</label>
-                            <input type="number" id="numPoints" value="500" min="50" max="2048">
-                            <span class="form-hint">Points per sample (FPS sampling)</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="samplesPerMesh">Samples Per Mesh</label>
-                            <input type="number" id="samplesPerMesh" value="100" min="10" max="500">
-                            <span class="form-hint">Augmented samples per mesh</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="normalizeCenter">Normalize Center</label>
-                            <select id="normalizeCenter">
-                                <option value="true" selected>Yes</option>
-                                <option value="false">No</option>
-                            </select>
-                            <span class="form-hint">Center mesh at origin</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="normalize">Normalize Scale</label>
-                            <select id="normalize">
-                                <option value="true">Unit Sphere</option>
-                                <option value="false" selected>None</option>
-                            </select>
-                            <span class="form-hint">Scale to unit sphere</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="rotationRange">Rotation Range (°)</label>
-                            <input type="number" id="rotationRange" value="360" min="0" max="360">
-                            <span class="form-hint">Data augmentation</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="translationRange">Translation Range (m)</label>
-                            <input type="number" id="translationRange" value="0.0" min="0" max="5" step="0.1">
-                            <span class="form-hint">Random translation</span>
+                        <div class="stage-header-meta">
+                            <span class="stage-badge" id="stageStatus-dataset">active</span>
+                            <button class="btn btn-ghost stage-reopen" type="button" data-stage-open="dataset">Open</button>
                         </div>
                     </div>
 
-                    <!-- Preprocessing Progress -->
-                    <div class="progress-container" id="preprocessProgress" style="display: none;">
-                        <div class="progress-info">
-                            <span id="preprocessProgressText">Preprocessing...</span>
-                            <span id="preprocessProgressPercent">Processing</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="preprocessProgressFill" style="width: 50%;"></div>
-                        </div>
+                    <div class="stage-summary" id="summary-dataset">
+                        <p class="summary-label">Dataset summary</p>
+                        <p class="summary-value" id="summaryText-dataset">No mesh files loaded yet.</p>
                     </div>
 
-                    <button class="btn btn-primary" id="preprocessBtn">
-                        <span>Preprocess Data</span>
-                        <div class="spinner" id="preprocessSpinner"></div>
-                    </button>
-                </div>
-            </section>
+                    <div class="stage-body">
+                        <div class="info-box" id="dataStatusBox" style="display: none;">
+                            <div class="info-text" id="dataStatusText"></div>
+                        </div>
 
-            <!-- Section 3: Model Configuration -->
-            <section class="card" id="modelSection">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <span class="step-number">3</span>
-                        Model Configuration & Training
-                    </h2>
-                </div>
-                <div class="card-body">
-                    <div class="task-selector">
-                        <label class="task-label">Task Type</label>
-                        <div class="task-options">
-                            <div class="task-option selected" data-task="classification">
-                                <span class="task-name">Classification</span>
-                                <span class="task-desc">Human identification (10-class)</span>
-                            </div>
-                            <div class="task-option" data-task="autoencoder">
-                                <span class="task-name">Autoencoder</span>
-                                <span class="task-desc">Point cloud compression/reconstruction</span>
+                        <div class="dataset-grid">
+                            <button class="upload-zone" id="uploadZone" type="button">
+                                <span class="upload-mark">INTAKE</span>
+                                <h3>Drop mesh files into the notebook</h3>
+                                <p>Click to browse or drag raw geometry files directly into the workspace.</p>
+                                <p class="upload-hint">Supported formats: .ply, .obj, .stl, .off</p>
+                                <input type="file" id="fileInput" multiple accept=".ply,.obj,.stl,.off" hidden>
+                            </button>
+
+                            <div class="dataset-insights">
+                                <article class="mini-panel">
+                                    <p class="mini-label">File count</p>
+                                    <p class="mini-value" id="datasetFileCount">0</p>
+                                    <p class="mini-copy">Raw meshes detected in intake.</p>
+                                </article>
+                                <article class="mini-panel">
+                                    <p class="mini-label">Formats</p>
+                                    <p class="mini-value" id="datasetFormatSummary">None yet</p>
+                                    <p class="mini-copy">A quick validation of upload diversity.</p>
+                                </article>
+                                <article class="mini-panel">
+                                    <p class="mini-label">Readiness</p>
+                                    <p class="mini-value" id="datasetReadiness">Blocked</p>
+                                    <p class="mini-copy">Preprocessing unlocks once raw data is present.</p>
+                                </article>
                             </div>
                         </div>
+
+                        <div class="progress-container" id="uploadProgress" style="display: none;">
+                            <div class="progress-info">
+                                <span id="uploadProgressText">Uploading files...</span>
+                                <span id="uploadProgressPercent">0%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="uploadProgressFill"></div>
+                            </div>
+                        </div>
+
+                        <div class="file-list-header" id="fileListHeader" style="display: none;">
+                            <span class="file-count" id="fileCount">0 files</span>
+                            <button class="btn-text" id="toggleFileListBtn" type="button">Show all</button>
+                        </div>
+
+                        <div class="file-list collapsed" id="fileList"></div>
                     </div>
-                    <div class="model-selector" id="classificationModels">
-                        <div class="model-option" data-model="mlp">
-                            <h3>MLP Baseline</h3>
-                            <p>Simple fully-connected network</p>
-                        </div>
-                        <div class="model-option" data-model="cnn1d">
-                            <h3>1D-CNN</h3>
-                            <p>Convolutional neural network</p>
-                        </div>
-                        <div class="model-option selected" data-model="pointnet">
-                            <h3>PointNet Tiny</h3>
-                            <p>Point cloud specialist with T-Net</p>
-                        </div>
-                    </div>
-                    <div class="model-selector" id="autoencoderModels" style="display: none;">
-                        <div class="model-option" data-model="mlp_ae">
-                            <h3>MLP Autoencoder</h3>
-                            <p>Flatten-based compression (Challenger)</p>
-                        </div>
-                        <div class="model-option selected" data-model="pointnet_ae">
-                            <h3>PointNet Autoencoder</h3>
-                            <p>Permutation-invariant encoder (Champion)</p>
-                        </div>
-                    </div>
+                </section>
 
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="batchSize">Batch Size</label>
-                            <input type="number" id="batchSize" value="64" min="4" max="256">
+                <section class="stage-card" data-stage="preprocess">
+                    <div class="stage-header">
+                        <div>
+                            <p class="stage-kicker">Stage 02</p>
+                            <h2 class="stage-title">Preprocess</h2>
+                            <p class="stage-description">Shape the sampling, centering, scaling, and augmentation profile before the run leaves raw geometry space.</p>
                         </div>
-
-                        <div class="form-group">
-                            <label for="numEpochs">Number of Epochs</label>
-                            <input type="number" id="numEpochs" value="120" min="1" max="500">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="learningRate">Learning Rate</label>
-                            <input type="number" id="learningRate" value="0.001" min="0.00001" max="0.1" step="0.0001">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="dropout">Dropout</label>
-                            <input type="number" id="dropout" value="0.5" min="0" max="0.9" step="0.1">
+                        <div class="stage-header-meta">
+                            <span class="stage-badge" id="stageStatus-preprocess">locked</span>
+                            <button class="btn btn-ghost stage-reopen" type="button" data-stage-open="preprocess">Open</button>
                         </div>
                     </div>
 
-                    <button class="btn btn-success" id="trainBtn">
-                        <span>Start Training</span>
-                        <div class="spinner" id="trainSpinner"></div>
-                    </button>
-                </div>
-            </section>
-
-            <!-- Section 4: Training Monitor -->
-            <section class="card" id="monitorSection" style="display: none;">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <span class="step-number">4</span>
-                        Training Progress
-                    </h2>
-                    <span class="badge" id="trainingStatus">Initializing...</span>
-                </div>
-                <div class="card-body">
-                    <div class="progress-container">
-                        <div class="progress-info">
-                            <span id="progressText">Epoch 0/120</span>
-                            <span id="progressPercent">0%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progressFill"></div>
-                        </div>
+                    <div class="stage-summary" id="summary-preprocess">
+                        <p class="summary-label">Preprocess summary</p>
+                        <p class="summary-value" id="summaryText-preprocess">No preprocessing profile has been applied yet.</p>
                     </div>
 
-                    <div class="metrics-grid">
-                        <div class="metric-card">
-                            <div class="metric-label">Train Loss</div>
-                            <div class="metric-value" id="trainLoss">-</div>
+                    <div class="stage-body">
+                        <div class="info-box" id="preprocessStatusBox" style="display: none;">
+                            <div class="info-text" id="preprocessStatusText"></div>
                         </div>
-                        <div class="metric-card" id="trainAccCard">
-                            <div class="metric-label">Train Accuracy</div>
-                            <div class="metric-value" id="trainAcc">-</div>
+
+                        <div class="parameter-cluster">
+                            <div class="cluster-head">
+                                <h3>Sampling and normalization</h3>
+                                <p>These settings control point density, geometric alignment, and cache regeneration.</p>
+                            </div>
+                            <div class="form-grid">
+                                <label class="form-group">
+                                    <span>Number of Points</span>
+                                    <input type="number" id="numPoints" value="500" min="50" max="2048">
+                                    <span class="form-hint">How many points are sampled from each mesh.</span>
+                                </label>
+                                <label class="form-group">
+                                    <span>Samples Per Mesh</span>
+                                    <input type="number" id="samplesPerMesh" value="100" min="10" max="500">
+                                    <span class="form-hint">Higher values increase augmentation diversity and preprocessing time.</span>
+                                </label>
+                                <label class="form-group">
+                                    <span>Normalize Center</span>
+                                    <select id="normalizeCenter">
+                                        <option value="true" selected>Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                    <span class="form-hint">Moves each mesh to the origin before training.</span>
+                                </label>
+                                <label class="form-group">
+                                    <span>Normalize Scale</span>
+                                    <select id="normalize">
+                                        <option value="true">Unit sphere</option>
+                                        <option value="false" selected>None</option>
+                                    </select>
+                                    <span class="form-hint">Improves consistency across subjects with different extents.</span>
+                                </label>
+                            </div>
                         </div>
-                        <div class="metric-card">
-                            <div class="metric-label">Val Loss</div>
-                            <div class="metric-value" id="valLoss">-</div>
+
+                        <div class="parameter-cluster">
+                            <div class="cluster-head">
+                                <h3>Augmentation</h3>
+                                <p>Tune rotation and translation noise to balance robustness, memory, and run duration.</p>
+                            </div>
+                            <div class="form-grid">
+                                <label class="form-group">
+                                    <span>Rotation Range (degrees)</span>
+                                    <input type="number" id="rotationRange" value="360" min="0" max="360">
+                                    <span class="form-hint">Wide rotation improves invariance, but may blur pose cues.</span>
+                                </label>
+                                <label class="form-group">
+                                    <span>Translation Range (meters)</span>
+                                    <input type="number" id="translationRange" value="0.0" min="0" max="5" step="0.1">
+                                    <span class="form-hint">Adds random offset noise around the centered cloud.</span>
+                                </label>
+                            </div>
                         </div>
-                        <div class="metric-card" id="valAccCard">
-                            <div class="metric-label">Val Accuracy</div>
-                            <div class="metric-value" id="valAcc">-</div>
+
+                        <div class="progress-container" id="preprocessProgress" style="display: none;">
+                            <div class="progress-info">
+                                <span id="preprocessProgressText">Preprocessing dataset...</span>
+                                <span id="preprocessProgressPercent">Working</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="preprocessProgressFill"></div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="chart-controls">
-                        <label class="checkbox-label">
-                            <input type="checkbox" checked data-dataset="0"> Train Loss
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" checked data-dataset="1"> Val Loss
-                        </label>
-                        <label class="checkbox-label" id="trainAccLabel">
-                            <input type="checkbox" checked data-dataset="2"> Train Acc
-                        </label>
-                        <label class="checkbox-label" id="valAccLabel">
-                            <input type="checkbox" checked data-dataset="3"> Val Acc
-                        </label>
-                    </div>
-
-                    <div class="chart-container">
-                        <canvas id="trainingChart"></canvas>
-                    </div>
-
-                    <div class="logs-container">
-                        <h3>Training Logs</h3>
-                        <div class="logs" id="trainingLogs"></div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Section 5: Results Visualization -->
-            <section class="card" id="resultsSection" style="display: none;">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <span class="step-number">5</span>
-                        Results & Evaluation
-                    </h2>
-                </div>
-                <div class="card-body">
-                    <button class="btn btn-primary" id="evaluateBtn">
-                        <span>Generate Evaluation Report</span>
-                    </button>
-
-                    <div class="results-grid" id="resultsGrid">
-                        <!-- Results will be populated here -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- Section 6: Download -->
-            <section class="card" id="downloadSection" style="display: none;">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <span class="step-number">6</span>
-                        Download
-                    </h2>
-                </div>
-                <div class="card-body">
-                    <div class="download-grid">
-                        <button class="btn btn-download" id="downloadModelBtn">
-                            <span class="download-icon">💾</span>
-                            <span>Download Model</span>
-                        </button>
-                        <button class="btn btn-download" id="downloadReportBtn">
-                            <span class="download-icon">📄</span>
-                            <span>Download Report</span>
+                        <button class="btn btn-primary" id="preprocessBtn" type="button">
+                            <span>Build Processed Dataset</span>
+                            <span class="spinner" id="preprocessSpinner"></span>
                         </button>
                     </div>
+                </section>
+
+                <section class="stage-card" data-stage="configure">
+                    <div class="stage-header">
+                        <div>
+                            <p class="stage-kicker">Stage 03</p>
+                            <h2 class="stage-title">Configure Experiment</h2>
+                            <p class="stage-description">Choose the task, model family, and hyperparameters that define the next training run.</p>
+                        </div>
+                        <div class="stage-header-meta">
+                            <span class="stage-badge" id="stageStatus-configure">locked</span>
+                            <button class="btn btn-ghost stage-reopen" type="button" data-stage-open="configure">Open</button>
+                        </div>
+                    </div>
+
+                    <div class="stage-summary" id="summary-configure">
+                        <p class="summary-label">Run configuration</p>
+                        <p class="summary-value" id="summaryText-configure">Model and optimizer settings not finalized yet.</p>
+                    </div>
+
+                    <div class="stage-body">
+                        <div class="parameter-cluster">
+                            <div class="cluster-head">
+                                <h3>Task framing</h3>
+                                <p>Switch between identity classification and autoencoder reconstruction without leaving the notebook.</p>
+                            </div>
+                            <div class="task-options">
+                                <button class="task-option selected" type="button" data-task="classification">
+                                    <span class="task-name">Classification</span>
+                                    <span class="task-desc">10-way subject identification with accuracy-driven monitoring.</span>
+                                </button>
+                                <button class="task-option" type="button" data-task="autoencoder">
+                                    <span class="task-name">Autoencoder</span>
+                                    <span class="task-desc">Compression and reconstruction with loss-focused tracking.</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="parameter-cluster">
+                            <div class="cluster-head">
+                                <h3>Model family</h3>
+                                <p>The notebook keeps the strongest point-cloud specialist preselected, but you can benchmark lighter baselines.</p>
+                            </div>
+                            <div class="model-selector" id="classificationModels">
+                                <button class="model-option" type="button" data-model="mlp">
+                                    <span class="model-name">MLP Baseline</span>
+                                    <span class="model-copy">Fastest reference run. Order-dependent and intentionally simple.</span>
+                                </button>
+                                <button class="model-option" type="button" data-model="cnn1d">
+                                    <span class="model-name">1D-CNN</span>
+                                    <span class="model-copy">Stronger than MLP with local feature extraction over ordered points.</span>
+                                </button>
+                                <button class="model-option selected" type="button" data-model="pointnet">
+                                    <span class="model-name">PointNet Tiny</span>
+                                    <span class="model-copy">Best aligned with point-cloud structure and the recommended default.</span>
+                                </button>
+                            </div>
+
+                            <div class="model-selector" id="autoencoderModels" style="display: none;">
+                                <button class="model-option" type="button" data-model="mlp_ae">
+                                    <span class="model-name">MLP Autoencoder</span>
+                                    <span class="model-copy">Simple flatten-based reconstruction baseline.</span>
+                                </button>
+                                <button class="model-option selected" type="button" data-model="pointnet_ae">
+                                    <span class="model-name">PointNet Autoencoder</span>
+                                    <span class="model-copy">Permutation-aware encoder with the best reconstruction profile.</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="parameter-cluster">
+                            <div class="cluster-head">
+                                <h3>Optimization profile</h3>
+                                <p>These controls shape memory pressure, convergence speed, and regularization strength.</p>
+                            </div>
+                            <div class="form-grid">
+                                <label class="form-group">
+                                    <span>Batch Size</span>
+                                    <input type="number" id="batchSize" value="64" min="4" max="256">
+                                    <span class="form-hint">Larger batches reduce noise but consume more memory.</span>
+                                </label>
+                                <label class="form-group">
+                                    <span>Number of Epochs</span>
+                                    <input type="number" id="numEpochs" value="120" min="1" max="500">
+                                    <span class="form-hint">Upper bound for training duration before early stopping kicks in.</span>
+                                </label>
+                                <label class="form-group">
+                                    <span>Learning Rate</span>
+                                    <input type="number" id="learningRate" value="0.001" min="0.00001" max="0.1" step="0.0001">
+                                    <span class="form-hint">Primary speed-versus-stability control for optimization.</span>
+                                </label>
+                                <label class="form-group">
+                                    <span>Dropout</span>
+                                    <input type="number" id="dropout" value="0.5" min="0" max="0.9" step="0.1">
+                                    <span class="form-hint">Regularization strength applied inside the selected network.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="readiness-panel" id="runReadiness">
+                            Ready to launch once preprocessing is complete. The selected profile is optimized for a stable first run.
+                        </div>
+
+                        <button class="btn btn-primary" id="trainBtn" type="button">
+                            <span>Start Training Run</span>
+                            <span class="spinner" id="trainSpinner"></span>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="stage-card" data-stage="train">
+                    <div class="stage-header">
+                        <div>
+                            <p class="stage-kicker">Stage 04</p>
+                            <h2 class="stage-title">Training Control Center</h2>
+                            <p class="stage-description">Once training starts, the workspace pivots into a focused monitoring mode with live metrics, chart updates, and logs.</p>
+                        </div>
+                        <div class="stage-header-meta">
+                            <span class="stage-badge" id="stageStatus-train">locked</span>
+                            <button class="btn btn-ghost stage-reopen" type="button" data-stage-open="train">Open</button>
+                        </div>
+                    </div>
+
+                    <div class="stage-summary" id="summary-train">
+                        <p class="summary-label">Training summary</p>
+                        <p class="summary-value" id="summaryText-train">No training run has started.</p>
+                    </div>
+
+                    <div class="stage-body">
+                        <div class="monitor-overview">
+                            <div class="progress-stack">
+                                <div class="progress-info">
+                                    <span id="progressText">Epoch 0/0</span>
+                                    <span id="progressPercent">0%</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progressFill"></div>
+                                </div>
+                            </div>
+                            <span class="stage-badge stage-badge-live" id="trainingStatus">idle</span>
+                        </div>
+
+                        <div class="metrics-grid live-metrics-grid">
+                            <article class="metric-card">
+                                <p class="metric-label">Train loss</p>
+                                <p class="metric-value" id="trainLoss">-</p>
+                            </article>
+                            <article class="metric-card" id="trainAccCard">
+                                <p class="metric-label">Train accuracy</p>
+                                <p class="metric-value" id="trainAcc">-</p>
+                            </article>
+                            <article class="metric-card">
+                                <p class="metric-label">Validation loss</p>
+                                <p class="metric-value" id="valLoss">-</p>
+                            </article>
+                            <article class="metric-card" id="valAccCard">
+                                <p class="metric-label">Validation accuracy</p>
+                                <p class="metric-value" id="valAcc">-</p>
+                            </article>
+                            <article class="metric-card">
+                                <p class="metric-label">Best signal</p>
+                                <p class="metric-value metric-value-small" id="bestMetric">-</p>
+                            </article>
+                            <article class="metric-card">
+                                <p class="metric-label">Elapsed</p>
+                                <p class="metric-value metric-value-small" id="elapsedTime">-</p>
+                            </article>
+                        </div>
+
+                        <div class="chart-panel">
+                            <div class="chart-panel-head">
+                                <div>
+                                    <p class="mini-label">Training curves</p>
+                                    <h3>Live experiment traces</h3>
+                                </div>
+                                <div class="chart-controls">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" checked data-dataset="0"> Train loss
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" checked data-dataset="1"> Val loss
+                                    </label>
+                                    <label class="checkbox-label" id="trainAccLabel">
+                                        <input type="checkbox" checked data-dataset="2"> Train acc
+                                    </label>
+                                    <label class="checkbox-label" id="valAccLabel">
+                                        <input type="checkbox" checked data-dataset="3"> Val acc
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="trainingChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="logs-container">
+                            <div class="cluster-head">
+                                <h3>Run logs</h3>
+                                <p>Background job messages stream here while the worker advances through epochs.</p>
+                            </div>
+                            <div class="logs" id="trainingLogs"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="stage-card" data-stage="evaluate">
+                    <div class="stage-header">
+                        <div>
+                            <p class="stage-kicker">Stage 05</p>
+                            <h2 class="stage-title">Evaluate Findings</h2>
+                            <p class="stage-description">Turn raw traces into a report-ready experiment summary with one-click evaluation generation.</p>
+                        </div>
+                        <div class="stage-header-meta">
+                            <span class="stage-badge" id="stageStatus-evaluate">locked</span>
+                            <button class="btn btn-ghost stage-reopen" type="button" data-stage-open="evaluate">Open</button>
+                        </div>
+                    </div>
+
+                    <div class="stage-summary" id="summary-evaluate">
+                        <p class="summary-label">Evaluation summary</p>
+                        <p class="summary-value" id="summaryText-evaluate">No evaluation report has been generated.</p>
+                    </div>
+
+                    <div class="stage-body">
+                        <div class="results-actions">
+                            <button class="btn btn-primary" id="evaluateBtn" type="button">Generate Evaluation Report</button>
+                        </div>
+                        <div class="readiness-panel" id="resultsNarrative">
+                            Completed runs surface here as insight cards, interpretation notes, and recommended next actions.
+                        </div>
+                        <div class="results-grid" id="resultsGrid"></div>
+                    </div>
+                </section>
+
+                <section class="stage-card" data-stage="export">
+                    <div class="stage-header">
+                        <div>
+                            <p class="stage-kicker">Stage 06</p>
+                            <h2 class="stage-title">Export Bundle</h2>
+                            <p class="stage-description">Package checkpoints and reports into a clean handoff area rather than a loose pair of download buttons.</p>
+                        </div>
+                        <div class="stage-header-meta">
+                            <span class="stage-badge" id="stageStatus-export">locked</span>
+                            <button class="btn btn-ghost stage-reopen" type="button" data-stage-open="export">Open</button>
+                        </div>
+                    </div>
+
+                    <div class="stage-summary" id="summary-export">
+                        <p class="summary-label">Export summary</p>
+                        <p class="summary-value" id="summaryText-export">Artifacts become available after training and report generation.</p>
+                    </div>
+
+                    <div class="stage-body">
+                        <div class="export-grid">
+                            <article class="export-card">
+                                <p class="mini-label">Checkpoint</p>
+                                <h3>Trained model</h3>
+                                <p>Download the best checkpoint captured for the current job.</p>
+                                <button class="btn btn-secondary" id="downloadModelBtn" type="button">Download Model</button>
+                            </article>
+                            <article class="export-card">
+                                <p class="mini-label">Report</p>
+                                <h3>Evaluation package</h3>
+                                <p>Export the generated JSON report for grading, review, or downstream comparison.</p>
+                                <button class="btn btn-secondary" id="downloadReportBtn" type="button">Download Report</button>
+                            </article>
+                        </div>
+                        <div class="readiness-panel" id="exportStatus">
+                            The export panel unlocks once a run finishes and a report has been generated.
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <aside class="context-panel" id="contextPanel">
+                <div class="context-block">
+                    <p class="context-kicker">Stage context</p>
+                    <h2 id="activeStageTitle">Dataset Intake</h2>
+                    <p id="activeStageDescription">Upload raw meshes or review what is already present in the project workspace.</p>
                 </div>
-            </section>
 
-        </main>
+                <div class="context-block" id="contextDetails">
+                    <div class="context-note">
+                        <p class="mini-label">What to do now</p>
+                        <p>Bring at least one valid mesh file into the notebook to unlock preprocessing.</p>
+                    </div>
+                </div>
 
-        <!-- Footer -->
+                <div class="context-block context-block-run" id="runSummaryPanel">
+                    <div class="context-block-head">
+                        <p class="context-kicker">Run summary</p>
+                        <h3>Current experiment snapshot</h3>
+                    </div>
+                    <dl class="run-meta-list" id="runMetaList">
+                        <div class="run-meta-row">
+                            <dt>Task</dt>
+                            <dd id="runMetaTask">Classification</dd>
+                        </div>
+                        <div class="run-meta-row">
+                            <dt>Model</dt>
+                            <dd id="runMetaModel">PointNet Tiny</dd>
+                        </div>
+                        <div class="run-meta-row">
+                            <dt>Epochs</dt>
+                            <dd id="runMetaEpochs">120</dd>
+                        </div>
+                        <div class="run-meta-row">
+                            <dt>Batch</dt>
+                            <dd id="runMetaBatch">64</dd>
+                        </div>
+                        <div class="run-meta-row">
+                            <dt>Learning rate</dt>
+                            <dd id="runMetaLr">0.001</dd>
+                        </div>
+                        <div class="run-meta-row">
+                            <dt>Job id</dt>
+                            <dd id="runMetaJob">Pending</dd>
+                        </div>
+                    </dl>
+                </div>
+            </aside>
+        </div>
+
         <footer class="footer">
             <p>Point Cloud Human Identification Platform</p>
         </footer>
     </div>
 
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
     <script src="app.js"></script>
 </body>
-
 </html>

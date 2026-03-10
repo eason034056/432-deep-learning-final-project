@@ -1,0 +1,21 @@
+{
+  "868ee905-6afd-4282-9cf7-95a5334ad9cd": {
+    "job_id": "868ee905-6afd-4282-9cf7-95a5334ad9cd",
+    "model_type": "pointnet",
+    "status": "queued",
+    "progress": 0.0,
+    "current_epoch": 0,
+    "total_epochs": 120,
+    "metrics": {
+      "train_loss": [],
+      "train_acc": [],
+      "val_loss": [],
+      "val_acc": []
+    },
+    "best_val_acc": 0.0,
+    "start_time": null,
+    "end_time": null,
+    "error": null,
+    "model_path": null
+  }
+}

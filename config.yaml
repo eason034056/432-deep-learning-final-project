@@ -1,7 +1,41 @@
 augmentation:
-  normalize: true
+  normalize: false
   rotation_range: 360
-  translation_range: 0.0
+  translation_range: 0
+autoencoder:
+  common:
+    num_channels: 3
+  eval:
+    batch_size: 64
+    num_samples: 4
+  mlp:
+    dropout: 0.1
+    hidden_dims:
+    - 256
+    - 128
+    latent_dim: 128
+  pointnet:
+    channel_dims:
+    - 64
+    - 128
+    - 512
+    decoder_dims:
+    - 512
+    - 256
+    - 128
+    dropout: 0.1
+    latent_dim: 256
+    use_tnet: false
+  train:
+    augment: false
+    batch_size: 64
+    early_stopping:
+      enabled: true
+      min_delta: 0.0
+      patience: 30
+    learning_rate: 0.001
+    num_epochs: 120
+    weight_decay: 1.0e-05
 data:
   normalize_center: true
   normalize_scale: false
@@ -20,33 +54,7 @@ model:
   dropout: 0.5
   dropout_sa: 0.5
   num_classes: 10
-  type: pointnet  # Options: mlp, cnn1d, pointnet
-autoencoder:
-  common:
-    num_channels: 3
-  mlp:
-    latent_dim: 128
-    hidden_dims: [256, 128]
-    dropout: 0.1
-  pointnet:
-    latent_dim: 256
-    channel_dims: [64, 128, 512]
-    decoder_dims: [512, 256, 128]
-    dropout: 0.1
-    use_tnet: false
-  train:
-    batch_size: 64
-    learning_rate: 0.001
-    weight_decay: 0.00001
-    num_epochs: 120
-    augment: false
-    early_stopping:
-      enabled: true
-      patience: 30
-      min_delta: 0.0
-  eval:
-    batch_size: 64
-    num_samples: 4
+  type: pointnet
 split:
   seed: 1
   test_ratio: 0.2

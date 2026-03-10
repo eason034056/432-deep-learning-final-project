@@ -7,7 +7,7 @@ PyTorch-based coursework project for two related tasks on 3D human point clouds:
 
 The repository now includes both a command-line workflow and a Flask + browser GUI for preprocessing, training, monitoring, evaluation, and artifact download.
 
-Course: MLDS 432 Deep Learning and Computer Vision
+Course: MLDS 432 Deep Learning
 Institution: Northwestern University
 
 ## Overview

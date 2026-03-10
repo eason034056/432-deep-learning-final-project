@@ -1,7 +1,7 @@
 # Deep Learning Final Project Report
 ## Point Cloud Human Identification and Point Cloud Compression
 
-**Course**: MLDS 432 Deep Learning and Computer Vision
+**Course**: MLDS 432 Deep Learning
 **Institution**: Northwestern University
 
 ## 1. Abstract
