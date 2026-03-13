@@ -47,6 +47,7 @@ Current source-of-truth settings come from `config.yaml`:
 - `data.num_points = 500`
 - `data.normalize_center = true`
 - `data.normalize_scale = false`
+- `augmentation.normalize = false`
 - `augmentation.rotation_range = 360`
 - `augmentation.translation_range = 0.0`
 - classification training batch size = 64

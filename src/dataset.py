@@ -2,7 +2,7 @@
 Dataset loader for FAUST human mesh dataset.
 
 This module handles:
-- Loading FAUST mesh files (.ply or .obj format)
+- Loading FAUST mesh files (.ply, .obj, .off, or .stl format)
 - Converting meshes to point clouds
 - Train/Val/Test splitting with stratification
 - Data augmentation during training
@@ -123,7 +123,7 @@ def load_mesh_file(file_path: str) -> np.ndarray:
     """
     Load a mesh file and return its vertices.
     
-    Supports .ply, .obj, .off formats via trimesh library.
+    Supports .ply, .obj, .off, and .stl formats via trimesh library.
     
     Args:
         file_path: path to mesh file
@@ -222,9 +222,9 @@ def load_faust_dataset(data_dir: str,
     """
     data_path = Path(data_dir)
     
-    # Find all mesh files (supports .ply, .obj, .off)
+    # Find all mesh files (supports .ply, .obj, .off, .stl)
     mesh_files = []
-    for ext in ['*.ply', '*.obj', '*.off']:
+    for ext in ['*.ply', '*.obj', '*.off', '*.stl']:
         mesh_files.extend(list(data_path.glob(ext)))
     
     # Sort files for reproducibility
@@ -612,4 +612,3 @@ def load_processed_dataset(load_path: str) -> Tuple[np.ndarray, np.ndarray, Opti
 #        for batch_data, batch_labels in train_loader:
 #            # Training step
 #            pass
-

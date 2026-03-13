@@ -19,6 +19,7 @@ const workflowState = {
     serverHealthy: false,
     files: [],
     latestMetrics: null,
+    evaluationResults: null,
     trainingStatus: 'idle',
     totalEpochs: 0,
     currentEpoch: 0,
@@ -44,6 +45,7 @@ async function initializeApp() {
         checkExistingData()
     ]);
 
+    await loadLatestJob();
     resetViewToNextStage();
 }
 
@@ -133,20 +135,60 @@ async function loadConfig() {
         document.getElementById('normalize').value = String(Boolean(dataCfg.normalize_scale));
         document.getElementById('rotationRange').value = augCfg.rotation_range ?? 360;
         document.getElementById('translationRange').value = augCfg.translation_range ?? 0;
-        document.getElementById('batchSize').value = trainCfg.batch_size ?? 64;
-        document.getElementById('numEpochs').value = trainCfg.num_epochs ?? 120;
-        document.getElementById('learningRate').value = trainCfg.learning_rate ?? 0.001;
-        document.getElementById('dropout').value = modelCfg.dropout ?? 0.5;
 
         if (modelCfg.type && !modelCfg.type.endsWith('_ae')) {
             selectedModel = modelCfg.type;
         }
 
+        syncTaskSpecificControls();
         syncSelectionUi();
         refreshDerivedUi();
     } catch (error) {
         console.error('Config load failed:', error);
     }
+}
+
+function getTaskForModel(modelType) {
+    return modelType.includes('_ae') ? 'autoencoder' : 'classification';
+}
+
+function getDefaultModelForTask(taskType) {
+    return taskType === 'autoencoder' ? 'pointnet_ae' : 'pointnet';
+}
+
+function getSelectedTrainConfig(config = currentConfig) {
+    if (!config) {
+        return {};
+    }
+
+    if (selectedTask === 'autoencoder') {
+        return config.autoencoder?.train || {};
+    }
+
+    return config.training || {};
+}
+
+function getSelectedModelConfig(config = currentConfig) {
+    if (!config) {
+        return {};
+    }
+
+    if (selectedTask === 'autoencoder') {
+        const aeKey = selectedModel.replace('_ae', '');
+        return config.autoencoder?.[aeKey] || {};
+    }
+
+    return config.model || {};
+}
+
+function syncTaskSpecificControls() {
+    const trainCfg = getSelectedTrainConfig();
+    const modelCfg = getSelectedModelConfig();
+
+    document.getElementById('batchSize').value = trainCfg.batch_size ?? 64;
+    document.getElementById('numEpochs').value = trainCfg.num_epochs ?? 120;
+    document.getElementById('learningRate').value = trainCfg.learning_rate ?? 0.001;
+    document.getElementById('dropout').value = modelCfg.dropout ?? (selectedTask === 'autoencoder' ? 0.1 : 0.5);
 }
 
 async function checkServerHealth() {
@@ -182,14 +224,27 @@ async function checkExistingData() {
         const data = await response.json();
         const infoBox = document.getElementById('dataStatusBox');
         const infoText = document.getElementById('dataStatusText');
+        const processedCache = data.processed_cache || null;
+        const hasRawFiles = Boolean(data.success && data.count > 0);
 
-        if (data.success && data.count > 0) {
+        workflowState.isPreprocessed = Boolean(processedCache);
+
+        if (hasRawFiles) {
             workflowState.hasData = true;
             workflowState.files = data.files;
             infoBox.className = 'info-box success';
-            infoText.textContent = `Found ${data.count} existing mesh files in data/raw. You can proceed directly or add more data.`;
+            infoText.textContent = processedCache
+                ? `Found ${data.count} raw mesh files and an existing processed cache. You can retrain immediately or regenerate preprocessing.`
+                : `Found ${data.count} existing mesh files in data/raw. You can proceed directly or add more data.`;
             infoBox.style.display = 'block';
             displayFileList(data.files);
+        } else if (processedCache) {
+            workflowState.hasData = false;
+            workflowState.files = [];
+            infoBox.className = 'info-box success';
+            infoText.textContent = 'Found an existing processed cache. Training is available even if no raw mesh intake is loaded right now.';
+            infoBox.style.display = 'block';
+            displayFileList([]);
         } else {
             workflowState.hasData = false;
             workflowState.files = [];
@@ -410,13 +465,21 @@ async function preprocessData() {
 
 function selectTask(taskType) {
     selectedTask = taskType;
-    selectedModel = taskType === 'classification' ? 'pointnet' : 'pointnet_ae';
+    if (taskType === 'classification' && selectedModel.includes('_ae')) {
+        selectedModel = currentConfig?.model?.type || getDefaultModelForTask(taskType);
+    }
+    if (taskType === 'autoencoder' && !selectedModel.includes('_ae')) {
+        selectedModel = getDefaultModelForTask(taskType);
+    }
+    syncTaskSpecificControls();
     syncSelectionUi();
     refreshDerivedUi();
 }
 
 function selectModel(modelType) {
+    selectedTask = getTaskForModel(modelType);
     selectedModel = modelType;
+    syncTaskSpecificControls();
     syncSelectionUi();
     refreshDerivedUi();
 }
@@ -479,11 +542,14 @@ async function startTraining() {
         workflowState.isTraining = true;
         workflowState.trainingCompleted = false;
         workflowState.reportGenerated = false;
+        workflowState.evaluationResults = null;
         workflowState.trainingStatus = 'running';
         workflowState.runStartedAt = Date.now();
         workflowState.activeStage = 'train';
         workflowState.reportPath = null;
 
+        applyTrainingPayloadToCurrentConfig(params);
+        clearEvaluationResults();
         initializeTrainingChart();
         updateRunSummary();
         refreshDerivedUi();
@@ -496,6 +562,38 @@ async function startTraining() {
         btn.classList.remove('loading');
         btn.disabled = workflowState.isTraining || !workflowState.isPreprocessed;
     }
+}
+
+function applyTrainingPayloadToCurrentConfig(params) {
+    if (!currentConfig) return;
+
+    if (params.model_type.includes('_ae')) {
+        const aeKey = params.model_type.replace('_ae', '');
+        currentConfig.autoencoder = currentConfig.autoencoder || {};
+        currentConfig.autoencoder.train = {
+            ...(currentConfig.autoencoder.train || {}),
+            ...(params.training || {})
+        };
+        currentConfig.training = {
+            ...(currentConfig.training || {}),
+            ...(params.training || {})
+        };
+        currentConfig.autoencoder[aeKey] = {
+            ...(currentConfig.autoencoder[aeKey] || {}),
+            ...(params.model || {})
+        };
+        return;
+    }
+
+    currentConfig.training = {
+        ...(currentConfig.training || {}),
+        ...(params.training || {})
+    };
+    currentConfig.model = {
+        ...(currentConfig.model || {}),
+        type: params.model_type,
+        ...(params.model || {})
+    };
 }
 
 function initializeTrainingChart() {
@@ -738,7 +836,8 @@ async function evaluateModel() {
 
         workflowState.reportGenerated = true;
         workflowState.reportPath = data.report_path || null;
-        await displayResults();
+        workflowState.evaluationResults = data.results || null;
+        renderEvaluationResults(data.results || null, data.model_type || selectedModel);
         workflowState.activeStage = 'export';
         refreshDerivedUi();
         showToast('Evaluation report generated.', 'success');
@@ -751,75 +850,81 @@ async function evaluateModel() {
     }
 }
 
-async function displayResults() {
-    if (!currentJobId) return;
+function renderEvaluationResults(results, modelType) {
+    const resultsGrid = document.getElementById('resultsGrid');
+    const resultsNarrative = document.getElementById('resultsNarrative');
+    const summaryText = document.getElementById('summaryText-evaluate');
+    const isAE = modelType.includes('_ae');
 
-    try {
-        const [vizResponse, statusResponse] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/visualization/${currentJobId}`),
-            fetch(`${API_BASE_URL}/api/training/status/${currentJobId}`)
-        ]);
-
-        const vizData = await vizResponse.json();
-        const statusData = statusResponse.ok ? await statusResponse.json() : {};
-        const modelType = statusData.model_type || selectedModel;
-        const isAE = modelType.includes('_ae');
-        const resultsGrid = document.getElementById('resultsGrid');
-        const metrics = vizData.metrics || {};
-        const totalEpochs = (metrics.train_loss || []).length;
-
-        if (!vizData.success) {
-            throw new Error(vizData.error || 'Could not load visualization metrics.');
-        }
-
-        if (isAE) {
-            const bestValLoss = Math.min(...(metrics.val_loss || [0]));
-            resultsGrid.innerHTML = `
-                <article class="metric-card">
-                    <p class="metric-label">Best validation loss</p>
-                    <p class="metric-value">${bestValLoss.toFixed(6)}</p>
-                </article>
-                <article class="metric-card">
-                    <p class="metric-label">Final train loss</p>
-                    <p class="metric-value">${(metrics.train_loss?.[totalEpochs - 1] || 0).toFixed(6)}</p>
-                </article>
-                <article class="metric-card">
-                    <p class="metric-label">Total epochs</p>
-                    <p class="metric-value">${totalEpochs}</p>
-                </article>
-            `;
-            document.getElementById('resultsNarrative').textContent =
-                `The reconstruction run settled at a best validation loss of ${bestValLoss.toFixed(6)}. Review whether lower loss is worth additional epochs or a different latent size.`;
-            document.getElementById('summaryText-evaluate').textContent =
-                `Autoencoder report ready with best validation loss ${bestValLoss.toFixed(6)}.`;
-        } else {
-            const bestValAcc = Math.max(...(metrics.val_acc || [0])) * 100;
-            resultsGrid.innerHTML = `
-                <article class="metric-card">
-                    <p class="metric-label">Best validation accuracy</p>
-                    <p class="metric-value">${bestValAcc.toFixed(2)}%</p>
-                </article>
-                <article class="metric-card">
-                    <p class="metric-label">Final train loss</p>
-                    <p class="metric-value">${(metrics.train_loss?.[totalEpochs - 1] || 0).toFixed(4)}</p>
-                </article>
-                <article class="metric-card">
-                    <p class="metric-label">Total epochs</p>
-                    <p class="metric-value">${totalEpochs}</p>
-                </article>
-            `;
-            document.getElementById('resultsNarrative').textContent =
-                `The best validation accuracy reached ${bestValAcc.toFixed(2)}%. If the gap between train and validation is large, try lowering capacity or dropout before the next run.`;
-            document.getElementById('summaryText-evaluate').textContent =
-                `Classification report ready with best validation accuracy ${bestValAcc.toFixed(2)}%.`;
-        }
-
-        document.getElementById('exportStatus').textContent =
-            'Checkpoint download is ready now. Report export is also available for handoff and grading.';
-    } catch (error) {
-        console.error('Results display error:', error);
-        showToast(error.message || 'Could not render evaluation results.', 'error');
+    if (!results) {
+        clearEvaluationResults();
+        return;
     }
+
+    if (isAE) {
+        const chamferDistance = Number(results.chamfer_distance || 0);
+        const reportedAccuracy = Number(results.accuracy || 0) * 100;
+
+        resultsGrid.innerHTML = `
+            <article class="metric-card">
+                <p class="metric-label">Chamfer distance</p>
+                <p class="metric-value">${chamferDistance.toFixed(6)}</p>
+            </article>
+            <article class="metric-card">
+                <p class="metric-label">Reported accuracy</p>
+                <p class="metric-value">${reportedAccuracy.toFixed(2)}%</p>
+            </article>
+            <article class="metric-card">
+                <p class="metric-label">Epochs tracked</p>
+                <p class="metric-value">${workflowState.currentEpoch || workflowState.totalEpochs || 0}</p>
+            </article>
+        `;
+        resultsNarrative.textContent =
+            `The reconstruction report recorded a Chamfer distance of ${chamferDistance.toFixed(6)}. Use this value to compare latent-size or architecture changes across runs.`;
+        summaryText.textContent =
+            `Autoencoder report ready with Chamfer distance ${chamferDistance.toFixed(6)}.`;
+    } else {
+        const accuracy = Number(results.accuracy || 0) * 100;
+        const precision = Number(results.precision || 0) * 100;
+        const recall = Number(results.recall || 0) * 100;
+        const f1Score = Number(results.f1_score || 0) * 100;
+
+        resultsGrid.innerHTML = `
+            <article class="metric-card">
+                <p class="metric-label">Accuracy</p>
+                <p class="metric-value">${accuracy.toFixed(2)}%</p>
+            </article>
+            <article class="metric-card">
+                <p class="metric-label">Precision</p>
+                <p class="metric-value">${precision.toFixed(2)}%</p>
+            </article>
+            <article class="metric-card">
+                <p class="metric-label">Recall</p>
+                <p class="metric-value">${recall.toFixed(2)}%</p>
+            </article>
+            <article class="metric-card">
+                <p class="metric-label">F1 score</p>
+                <p class="metric-value">${f1Score.toFixed(2)}%</p>
+            </article>
+        `;
+        resultsNarrative.textContent =
+            `The evaluation report measured ${accuracy.toFixed(2)}% accuracy with an F1 score of ${f1Score.toFixed(2)}%. Use precision and recall together to judge whether the classifier is balanced across subjects.`;
+        summaryText.textContent =
+            `Classification report ready with ${accuracy.toFixed(2)}% accuracy and ${f1Score.toFixed(2)}% F1.`;
+    }
+
+    document.getElementById('exportStatus').textContent =
+        'Checkpoint download is ready now. The JSON evaluation report is also ready for handoff and grading.';
+}
+
+function clearEvaluationResults() {
+    document.getElementById('resultsGrid').innerHTML = '';
+    document.getElementById('resultsNarrative').textContent =
+        'Completed runs surface here as insight cards, interpretation notes, and recommended next actions.';
+    document.getElementById('summaryText-evaluate').textContent =
+        'No evaluation report has been generated.';
+    document.getElementById('exportStatus').textContent =
+        'The export panel unlocks once a run finishes and a report has been generated.';
 }
 
 async function downloadModel() {
@@ -842,10 +947,63 @@ async function downloadReport() {
     showToast('Report download started.', 'success');
 }
 
+async function loadLatestJob() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/training/jobs`);
+        const data = await response.json();
+
+        if (!data.success || !Array.isArray(data.jobs) || !data.jobs.length) {
+            return;
+        }
+
+        applyLatestJob(data.jobs[0]);
+    } catch (error) {
+        console.error('Job restore failed:', error);
+    }
+}
+
+function applyLatestJob(job) {
+    currentJobId = job.job_id;
+    selectedModel = job.model_type || selectedModel;
+    selectedTask = getTaskForModel(selectedModel);
+
+    if (job.config) {
+        currentConfig = job.config;
+    }
+
+    syncTaskSpecificControls();
+    syncSelectionUi();
+
+    workflowState.trainingStatus = job.status || 'idle';
+    workflowState.totalEpochs = job.total_epochs || 0;
+    workflowState.currentEpoch = job.current_epoch || 0;
+    workflowState.latestMetrics = job.metrics || null;
+    workflowState.evaluationResults = job.evaluation_results || null;
+    workflowState.isTraining = job.status === 'running' || job.status === 'queued';
+    workflowState.trainingCompleted = job.status === 'completed';
+    workflowState.reportGenerated = Boolean(job.report_path);
+    workflowState.reportPath = job.report_path || null;
+    workflowState.runStartedAt = job.start_time || null;
+
+    if (job.metrics) {
+        updateTrainingUI(job);
+    } else {
+        refreshDerivedUi();
+    }
+
+    if (workflowState.evaluationResults) {
+        renderEvaluationResults(workflowState.evaluationResults, selectedModel);
+    }
+
+    if (workflowState.isTraining) {
+        startPollingTrainingStatus();
+    }
+}
+
 async function refreshWorkspace() {
-    await Promise.all([checkServerHealth(), checkExistingData()]);
-    if (currentJobId && workflowState.isTraining) {
-        await pollTrainingStatus();
+    await Promise.all([checkServerHealth(), checkExistingData(), loadLatestJob()]);
+    if (currentJobId && workflowState.isTraining && !pollingInterval) {
+        startPollingTrainingStatus();
     }
     showToast('Workspace refreshed.', 'info');
 }
@@ -1099,7 +1257,7 @@ function getStageNarrative(stageKey) {
         case 'evaluate':
             return {
                 title: 'Evaluate Findings',
-                description: 'Turn the training history into a concise result summary with metric cards and interpretation guidance.',
+                description: 'Turn backend evaluation metrics into a concise result summary with metric cards and interpretation guidance.',
                 notes: [
                     { label: 'Expected outcome', body: 'Generate a report once training completes to unlock the full export bundle.' },
                     { label: 'Use this stage for', body: 'Comparing best validation behavior, reviewing final losses, and deciding the next experiment.' }

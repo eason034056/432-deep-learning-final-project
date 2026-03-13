@@ -10,19 +10,15 @@ Handles:
 """
 
 import os
-import sys
 import json
 import uuid
 import threading
 import logging
+from copy import deepcopy
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, Optional, List
 from queue import Queue
 import traceback
-
-# Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from backend.train_integration import (
     train_model,
@@ -43,7 +39,7 @@ class TrainingJob:
     def __init__(self, job_id: str, model_type: str, config: dict):
         self.job_id = job_id
         self.model_type = model_type
-        self.config = config
+        self.config = deepcopy(config)
         self.status = 'queued'  # queued, running, completed, failed
         self.progress = 0.0
         self.current_epoch = 0
@@ -59,6 +55,8 @@ class TrainingJob:
         self.start_time = None
         self.end_time = None
         self.model_path = None
+        self.report_path = None
+        self.evaluation_results = None
         self.best_val_acc = 0.0
     
     def log(self, message: str):
@@ -93,16 +91,20 @@ class TrainingJob:
         return {
             'job_id': self.job_id,
             'model_type': self.model_type,
+            'config': self.config,
             'status': self.status,
             'progress': self.progress,
             'current_epoch': self.current_epoch,
             'total_epochs': self.total_epochs,
             'metrics': self.metrics,
+            'logs': self.logs,
             'best_val_acc': self.best_val_acc,
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'end_time': self.end_time.isoformat() if self.end_time else None,
             'error': self.error,
-            'model_path': self.model_path
+            'model_path': self.model_path,
+            'report_path': self.report_path,
+            'evaluation_results': self.evaluation_results,
         }
 
 
@@ -143,20 +145,28 @@ class TrainingManager:
                 jobs_data = json.load(f)
                 
             for job_id, data in jobs_data.items():
-                # Reconstruct TrainingJob objects
-                job = TrainingJob(job_id, data['model_type'], load_config()) # Config might be outdated but sufficient for path
+                job_config = data.get('config') or load_config()
+                job = TrainingJob(job_id, data['model_type'], job_config)
                 job.status = data['status']
                 job.progress = data['progress']
                 job.current_epoch = data['current_epoch']
                 job.metrics = data['metrics']
+                job.logs = data.get('logs', [])
                 job.best_val_acc = data.get('best_val_acc', 0.0)
                 job.model_path = data.get('model_path')
+                job.report_path = data.get('report_path')
+                job.evaluation_results = data.get('evaluation_results')
                 job.error = data.get('error')
                 
                 if data.get('start_time'):
                     job.start_time = datetime.fromisoformat(data['start_time'])
                 if data.get('end_time'):
                     job.end_time = datetime.fromisoformat(data['end_time'])
+
+                if job.report_path is None:
+                    report_path = self._build_report_path(job_id)
+                    if os.path.exists(report_path):
+                        job.report_path = report_path
                 
                 self.jobs[job_id] = job
                 
@@ -164,21 +174,15 @@ class TrainingManager:
         except Exception as e:
             logger.error(f"Failed to load jobs: {e}")
     
-    def start_preprocessing(self, config: dict) -> str:
-        """Start preprocessing job"""
-        job_id = str(uuid.uuid4())
-        
-        # For now, preprocessing is blocking since it's fast
-        # In production, this could also be a background job
+    def start_preprocessing(self, config: dict) -> None:
+        """Run preprocessing synchronously."""
         try:
-            logger.info(f"Starting preprocessing job {job_id}")
+            logger.info("Starting preprocessing")
             preprocess_faust_dataset(config)
-            logger.info(f"Preprocessing job {job_id} completed")
+            logger.info("Preprocessing completed")
         except Exception as e:
             logger.error(f"Preprocessing failed: {e}")
             raise
-        
-        return job_id
     
     def start_training(self, model_type: str, config: dict) -> str:
         """
@@ -330,7 +334,16 @@ class TrainingManager:
     def list_jobs(self) -> List[dict]:
         """List all jobs"""
         with self.lock:
-            return [job.to_dict() for job in self.jobs.values()]
+            jobs = list(self.jobs.values())
+
+        jobs.sort(
+            key=lambda job: (
+                job.end_time or job.start_time or datetime.min,
+                job.job_id,
+            ),
+            reverse=True,
+        )
+        return [job.to_dict() for job in jobs]
     
     def evaluate_model(self, job_id: str) -> Optional[dict]:
         """Evaluate a trained model"""
@@ -356,7 +369,7 @@ class TrainingManager:
             logger.error(f"Evaluation failed: {e}")
             return None
     
-    def generate_report(self, job_id: str) -> Optional[str]:
+    def generate_report(self, job_id: str) -> Optional[dict]:
         """Generate evaluation report"""
         with self.lock:
             job = self.jobs.get(job_id)
@@ -366,26 +379,32 @@ class TrainingManager:
         
         try:
             # Generate report (JSON format; PDF/HTML not implemented)
-            report_dir = os.path.join(get_project_root(), 'results', 'reports')
-            os.makedirs(report_dir, exist_ok=True)
-            
-            report_path = os.path.join(report_dir, f'report_{job_id}.json')
+            report_path = self._build_report_path(job_id)
+            os.makedirs(os.path.dirname(report_path), exist_ok=True)
             
             # Evaluate and save results
             results = self.evaluate_model(job_id)
+            if results is None:
+                return None
             
             report_data = {
                 'job_id': job_id,
                 'model_type': job.model_type,
                 'training_summary': job.to_dict(),
                 'evaluation_results': results,
-                'generated_at': datetime.now().isoformat()
+                'generated_at': datetime.now().isoformat(),
+                'report_path': report_path,
             }
             
             with open(report_path, 'w') as f:
                 json.dump(report_data, f, indent=2)
-            
-            return report_path
+
+            with self.lock:
+                job.report_path = report_path
+                job.evaluation_results = results
+                self._save_jobs()
+
+            return report_data
             
         except Exception as e:
             logger.error(f"Report generation failed: {e}")
@@ -416,14 +435,20 @@ class TrainingManager:
     
     def get_report_path(self, job_id: str) -> Optional[str]:
         """Get path to evaluation report"""
-        report_path = os.path.join(
-            get_project_root(),
-            'results',
-            'reports',
-            f'report_{job_id}.json'
-        )
+        with self.lock:
+            job = self.jobs.get(job_id)
+
+        report_path = job.report_path if job is not None else self._build_report_path(job_id)
         
         if os.path.exists(report_path):
             return report_path
         
         return None
+
+    def _build_report_path(self, job_id: str) -> str:
+        return os.path.join(
+            get_project_root(),
+            'results',
+            'reports',
+            f'report_{job_id}.json'
+        )

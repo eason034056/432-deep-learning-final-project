@@ -52,7 +52,7 @@ Core ML pipeline:
 Application layer:
 
 - `backend/app.py`: Flask API
-- `backend/training_manager.py`: background jobs and training progress
+- `backend/training_manager.py`: training jobs, persisted run state, and report generation
 - `backend/train_integration.py`: bridge from GUI to training scripts
 - `frontend/index.html`: browser UI
 - `frontend/app.js`: client-side workflow and chart updates
@@ -154,7 +154,7 @@ data:
   processed_dir: data/processed
 
 augmentation:
-  normalize: true
+  normalize: false
   rotation_range: 360
   translation_range: 0.0
 ```

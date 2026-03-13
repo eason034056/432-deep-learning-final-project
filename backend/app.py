@@ -14,10 +14,8 @@ This server provides REST API endpoints for:
 import os
 import sys
 import json
-import uuid
 import logging
 from datetime import datetime
-from pathlib import Path
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -109,7 +107,7 @@ def update_config():
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
     """
-    Upload raw mesh files (.ply, .obj)
+    Upload raw mesh files (.ply, .obj, .stl, .off)
     
     Expects: multipart/form-data with files
     Returns: List of uploaded filenames and status
@@ -155,6 +153,7 @@ def list_data_files():
     """List all uploaded data files"""
     try:
         raw_dir = app.config['UPLOAD_FOLDER']
+        processed_path = os.path.join(app.config['PROCESSED_FOLDER'], 'faust_pc.npz')
         files = []
         
         if os.path.exists(raw_dir):
@@ -166,11 +165,20 @@ def list_data_files():
                         'size': os.path.getsize(filepath),
                         'modified': datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat()
                     })
+
+        processed_cache = None
+        if os.path.exists(processed_path):
+            processed_cache = {
+                'name': os.path.basename(processed_path),
+                'size': os.path.getsize(processed_path),
+                'modified': datetime.fromtimestamp(os.path.getmtime(processed_path)).isoformat()
+            }
         
         return jsonify({
             'success': True,
             'files': files,
-            'count': len(files)
+            'count': len(files),
+            'processed_cache': processed_cache,
         })
         
     except Exception as e:
@@ -187,9 +195,8 @@ def preprocess_data():
     Preprocess raw mesh data.
 
     Expects JSON with preprocessing parameters:
-    - num_points: int
-    - normalize: bool
-    - augmentation settings
+    - data: preprocessing config overrides
+    - augmentation: augmentation config overrides
     """
     try:
         params = request.json or {}
@@ -208,13 +215,12 @@ def preprocess_data():
         logger.info(f"  Normalize Scale: {config['data'].get('normalize_scale')}")
         logger.info(f"  Augmentation: {json.dumps(config['augmentation'], indent=2)}")
         
-        # Start preprocessing as a background job
-        job_id = training_manager.start_preprocessing(config)
+        training_manager.start_preprocessing(config)
         
         return jsonify({
             'success': True,
-            'job_id': job_id,
-            'message': 'Preprocessing started'
+            'message': 'Preprocessing completed',
+            'processed_dataset': os.path.join(config['data']['processed_dir'], 'faust_pc.npz')
         })
         
     except Exception as e:
@@ -263,7 +269,7 @@ def train_model():
             config['model'].update(model_updates)
         save_config(config)
         
-        # Start training as a background job
+        # Start training as a persisted background job
         job_id = training_manager.start_training(model_type, config)
         
         return jsonify({
@@ -348,43 +354,13 @@ def list_training_jobs():
         }), 500
 
 
-@app.route('/api/evaluate/<job_id>', methods=['POST'])
-def evaluate_model(job_id):
-    """
-    Evaluate a trained model
-    
-    Expects JSON with:
-    - metrics: list of metrics to compute
-    """
-    try:
-        results = training_manager.evaluate_model(job_id)
-        
-        if results is None:
-            return jsonify({
-                'success': False,
-                'error': 'Job not found or not completed'
-            }), 404
-        
-        return jsonify({
-            'success': True,
-            'results': results
-        })
-        
-    except Exception as e:
-        logger.error(f"Evaluation error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
 @app.route('/api/report/generate/<job_id>', methods=['POST'])
 def generate_report(job_id):
-    """Generate comprehensive evaluation report"""
+    """Evaluate a completed run and persist the JSON report."""
     try:
-        report_path = training_manager.generate_report(job_id)
+        report_data = training_manager.generate_report(job_id)
         
-        if report_path is None:
+        if report_data is None:
             return jsonify({
                 'success': False,
                 'error': 'Job not found or not completed'
@@ -392,7 +368,9 @@ def generate_report(job_id):
         
         return jsonify({
             'success': True,
-            'report_path': report_path,
+            'report_path': report_data['report_path'],
+            'model_type': report_data['model_type'],
+            'results': report_data['evaluation_results'],
             'message': 'Report generated successfully'
         })
         

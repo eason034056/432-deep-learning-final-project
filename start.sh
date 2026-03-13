@@ -6,7 +6,7 @@
 set -e
 
 echo "=========================================="
-echo "Point Cloud ML Platform - Quick Start"
+echo "Point Cloud Human Identification Platform - Quick Start"
 echo "=========================================="
 echo ""
 
