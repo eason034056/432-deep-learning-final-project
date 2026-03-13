@@ -280,20 +280,6 @@ Current takeaway:
 - `pointnet_ae` reconstructs point clouds much more accurately than `mlp_ae`.
 - `pointnet_ae` also uses fewer parameters than the MLP autoencoder in the current implementation.
 
-### Ablation: Centering
-Measured from `results/experiments/summary_report.txt`:
-
-| Model | With Centering (%) | No Centering (%) | Difference |
-| --- | ---: | ---: | ---: |
-| MLP | 20.18 | 30.27 | -10.09 |
-| CNN1D | 60.91 | 59.09 | +1.82 |
-| PointNet | 71.73 | 54.55 | +17.18 |
-
-Main finding:
-
-- Centering is critical for `pointnet`.
-- Centering has very little effect on `cnn1d`.
-- In this experiment, `mlp` did slightly better without centering.
 
 ## Expected Outputs
 After training and evaluation, the repository produces artifacts such as:
